@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+
+# Environment secrets
+.env
+
+# Runtime data
+*.db
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# 打包 / 部署产物（本地保留，不入仓）
+deploy/

@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Faux Server - Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+         background: #0f172a; color: #e2e8f0; }
+  .header { background: #1e293b; padding: 16px 24px; border-bottom: 1px solid #334155;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            overflow-x: auto; }
+  .header h1 { font-size: 20px; color: #38bdf8; white-space: nowrap; }
+  .header .links { display: flex; align-items: center; white-space: nowrap; flex-shrink: 0; }
+  .header .links a { color: #94a3b8; text-decoration: none; margin-left: 12px; font-size: 14px; }
+  .header .links a:hover { color: #38bdf8; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 20px; border: 1px solid #334155; }
+  .card h2 { font-size: 16px; color: #38bdf8; margin-bottom: 12px; display: flex;
+             align-items: center; justify-content: space-between; }
+  .card h2 button { font-size: 12px; padding: 4px 12px; background: #334155; color: #e2e8f0;
+                    border: none; border-radius: 6px; cursor: pointer; }
+  .card h2 button:hover { background: #475569; }
+  .stat { display: inline-block; background: #0f172a; padding: 8px 16px; border-radius: 8px;
+          margin: 4px; }
+  .stat .num { font-size: 24px; font-weight: bold; color: #38bdf8; }
+  .stat .label { font-size: 12px; color: #94a3b8; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px; color: #94a3b8; border-bottom: 1px solid #334155;
+       font-weight: 600; }
+  td { padding: 8px; border-bottom: 1px solid #334155; max-width: 300px; overflow: hidden;
+       text-overflow: ellipsis; white-space: nowrap; }
+  tr:hover { background: #0f172a; }
+  .badge { padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+  .badge-success { background: #064e3b; color: #34d399; }
+  .badge-fail { background: #7f1d1d; color: #f87171; }
+  .badge-timeout { background: #78350f; color: #fbbf24; }
+  .badge-not_found { background: #1e1b4b; color: #818cf8; }
+  .mode-row { display: flex; align-items: center; gap: 12px; padding: 8px 0;
+              border-bottom: 1px solid #334155; }
+  .mode-row:last-child { border-bottom: none; }
+  .mode-row .target { font-weight: 600; min-width: 120px; }
+  .mode-bar { flex: 1; height: 8px; border-radius: 4px; display: flex; overflow: hidden; }
+  .mode-bar .s { background: #34d399; }
+  .mode-bar .f { background: #f87171; }
+  .mode-bar .t { background: #fbbf24; }
+  .mode-row input { width: 50px; background: #0f172a; border: 1px solid #334155;
+                    color: #e2e8f0; border-radius: 4px; padding: 4px; text-align: center; }
+  .mode-row label { font-size: 12px; color: #94a3b8; min-width: 30px; }
+  .mode-row button { padding: 4px 12px; background: #0ea5e9; color: #fff; border: none;
+                     border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .mode-row button:hover { background: #0284c7; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .actions button { padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+                    font-size: 13px; font-weight: 500; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-secondary { background: #334155; color: #e2e8f0; }
+  .actions button:hover { opacity: 0.85; }
+  .empty { text-align: center; color: #64748b; padding: 40px; }
+  .scroll { max-height: 400px; overflow-y: auto; }
+  .scroll::-webkit-scrollbar { width: 6px; }
+  .scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  #toast { position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; border-radius: 8px;
+           background: #1e293b; border: 1px solid #334155; color: #e2e8f0; display: none; }
+  #detailOverlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: none;
+                   z-index: 100; align-items: flex-start; justify-content: center;
+                   padding: 40px 20px; overflow-y: auto; }
+  .detail-box { background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+                width: 900px; max-width: 100%; padding: 20px; }
+  .detail-box h3 { color: #38bdf8; font-size: 16px; margin-bottom: 12px;
+                   display: flex; justify-content: space-between; align-items: center; }
+  .detail-box h3 button { background: #334155; color: #e2e8f0; border: none;
+                          border-radius: 6px; padding: 4px 12px; cursor: pointer; font-size: 12px; }
+  .detail-box h4 { color: #94a3b8; font-size: 13px; margin: 16px 0 6px;
+                   border-bottom: 1px solid #334155; padding-bottom: 4px; }
+  .detail-box pre { background: #0f172a; border: 1px solid #334155; border-radius: 6px;
+                    padding: 10px; font-size: 12px; white-space: pre-wrap; word-break: break-all;
+                    max-height: 260px; overflow-y: auto; color: #cbd5e1; }
+  .kv-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .kv-table td { padding: 4px 8px; border-bottom: 1px solid #334155; white-space: normal;
+                 max-width: 420px; word-break: break-all; }
+  .kv-table td:first-child { color: #94a3b8; width: 130px; }
+  #logsBody tr { cursor: pointer; }
+  .input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+  .input-group input, .input-group select { flex: 1; background: #0f172a; border: 1px solid #334155;
+            color: #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+  .input-group button { padding: 8px 16px; background: #0ea5e9; color: #fff; border: none;
+                        border-radius: 6px; cursor: pointer; font-size: 13px; white-space: nowrap; }
+  /* ── 服务配置 / 全局参数 ── */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .chip { background: #0f172a; border: 1px solid #334155; color: #38bdf8; border-radius: 10px;
+          padding: 2px 10px; font-size: 12px; cursor: pointer; font-family: Consolas, monospace; }
+  .chip:hover { border-color: #38bdf8; }
+  .chip-g { color: #34d399; }
+  textarea { width: 100%; background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+             border-radius: 6px; padding: 10px; font-size: 13px; font-family: Consolas, monospace;
+             white-space: pre; resize: vertical; }
+  .detail-box input:not([type=checkbox]) { background: #0f172a; border: 1px solid #334155;
+           color: #e2e8f0; border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+  .mini-btn { padding: 3px 10px; background: #334155; color: #e2e8f0; border: none;
+              border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 4px; }
+  .mini-btn:hover { background: #475569; }
+  .mini-btn.danger:hover { background: #ef4444; }
+  /* ── 页签 ── */
+  .tabs { display: flex; gap: 4px; }
+  .tab-btn { padding: 6px 18px; background: #0f172a; color: #94a3b8; border: 1px solid #334155;
+             border-bottom: none; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px; }
+  .tab-btn:hover { color: #e2e8f0; }
+  .tab-btn.active { background: #0ea5e9; color: #fff; border-color: #0ea5e9; font-weight: 600; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+  /* ── 主页签（页面级导航） ── */
+  .tabs.main { margin-bottom: 20px; border-bottom: 2px solid #0ea5e9; }
+  .tabs.main .tab-btn { padding: 10px 26px; font-size: 14px; margin-bottom: -2px; }
+  /* ── 过滤表单（可换行） ── */
+  .input-group.wrap { flex-wrap: wrap; }
+  .input-group.wrap input, .input-group.wrap select { flex: 1; min-width: 110px; max-width: none; }
+  .input-group.wrap select { max-width: 130px; }
+  .pager { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 12px;
+           color: #94a3b8; }
+  .pager button { padding: 4px 12px; background: #334155; color: #e2e8f0; border: none;
+                  border-radius: 4px; cursor: pointer; font-size: 12px; }
+  .pager button:disabled { opacity: 0.4; cursor: default; }
+  .badge-method_not_allowed { background: #312e81; color: #a5b4fc; }
+  .badge-latency { background: #0c4a6e; color: #38bdf8; }
+  .badge-custom { background: #3b0764; color: #c084fc; }
+  /* ── header 操作按钮 ── */
+  .hbtn { padding: 5px 14px; background: #334155; color: #e2e8f0; border: none;
+          border-radius: 6px; cursor: pointer; font-size: 13px; margin-left: 12px; }
+  .hbtn:hover { background: #475569; }
+  .chip.on { border-color: #38bdf8; background: #0c4a6e; color: #e0f2fe; }
+  .detail-box select { background: #0f172a; border: 1px solid #334155; color: #e2e8f0;
+                       border-radius: 6px; padding: 6px 10px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Smart Faux Server</h1>
+  <div class="links">
+    <button class="hbtn" onclick="exportAllConfig()" title="导出全部配置（目标服务、全局参数、故障模式/场景、统计指标、MQ 消费方/生产者）为 JSON 文件">⬇ 导出配置</button>
+    <button class="hbtn" onclick="document.getElementById('importFile').click()" title="从「导出配置」生成的 JSON 文件批量导入全部配置">⬆ 导入配置</button>
+    <button class="hbtn" onclick="resetLogs()">清空日志</button>
+    <button class="hbtn" onclick="loadStats(true)">刷新统计</button>
+    <span style="display:flex; align-items:center; gap:6px; margin-left:12px; font-size:13px; color:#94a3b8; white-space:nowrap;">自动刷新
+      <select id="autoRefreshSel" onchange="setAutoRefresh(this.value)" title="概览数据自动刷新间隔（ms=秒，m=分钟，- 不刷新）"
+              style="background:#1e293b; border:1px solid #334155; color:#e2e8f0; border-radius:6px; padding:4px 8px; font-size:13px;">
+        <option value="-">-</option>
+        <option value="5">5ms</option>
+        <option value="15" selected>15ms</option>
+        <option value="30">30ms</option>
+        <option value="60">1m</option>
+        <option value="300">5m</option>
+        <option value="1200">20m</option>
+      </select>
+    </span>
+    <a href="/docs" target="_blank">Swagger API</a>
+  </div>
+</div>
+
+<input type="file" id="importFile" accept=".json,application/json" style="display:none" onchange="importAllConfig(this)">
+
+<div class="container">
+
+  <!-- 主页签 -->
+  <div class="tabs main">
+    <button class="tab-btn active" id="tabBtn_overview" onclick="switchTab('overview')">概览</button>
+    <button class="tab-btn" id="tabBtn_targets" onclick="switchTab('targets')">目标服务</button>
+    <button class="tab-btn" id="tabBtn_params" onclick="switchTab('params')">全局参数</button>
+    <button class="tab-btn" id="tabBtn_metrics" onclick="switchTab('metrics')">统计指标</button>
+    <button class="tab-btn" id="tabBtn_faults" onclick="switchTab('faults')">故障注入</button>
+    <button class="tab-btn" id="tabBtn_mqconsumers" onclick="switchTab('mqconsumers')">MQ 消费方</button>
+    <button class="tab-btn" id="tabBtn_mqproducers" onclick="switchTab('mqproducers')">MQ 生产者</button>
+    <button class="tab-btn" id="tabBtn_mqsends" onclick="switchTab('mqsends')">MQ 发送</button>
+    <button class="tab-btn" id="tabBtn_auth" onclick="switchTab('auth')">认证</button>
+  </div>
+
+  <!-- 页签 1：概览 -->
+  <div class="tab-pane active" id="pane_overview">
+
+    <!-- 统计概览（全宽，指标由「统计指标」页签配置） -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>统计概览 <button onclick="loadStats()">刷新</button></h2>
+      <div id="stats" style="display: flex; flex-wrap: wrap;">
+        <div class="empty">加载中...</div>
+      </div>
+    </div>
+
+    <!-- 实收消息（HTTP 请求日志，全宽） -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>实收消息 <button onclick="loadLogs(logOffset)">刷新</button></h2>
+      <div class="input-group wrap">
+        <input type="text" id="logKw" placeholder="关键词：模糊搜请求/响应头体" style="flex:2; min-width:170px;">
+        <input type="text" id="logMarker" placeholder="Marker（模糊）">
+        <input type="text" id="logTarget" placeholder="目标（模糊）">
+        <select id="logType">
+          <option value="">类型：全部</option>
+          <option>success</option>
+          <option>fail</option>
+          <option>timeout</option>
+          <option>not_found</option>
+          <option>method_not_allowed</option>
+          <option>custom</option>
+        </select>
+        <select id="logRange">
+          <option value="60" selected>近 1 小时</option>
+          <option value="15">近 15 分钟</option>
+          <option value="240">近 4 小时</option>
+          <option value="1440">近 24 小时</option>
+          <option value="0">全部时间</option>
+        </select>
+        <button onclick="loadLogs(0)">查询</button>
+        <button class="btn-secondary" style="background:#334155; color:#e2e8f0;" onclick="logReset()">重置</button>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>日期</th><th>时间</th><th>目标</th><th>方法</th><th>Marker</th><th>状态</th><th>类型</th></tr>
+          </thead>
+          <tbody id="logsBody">
+            <tr><td colspan="8" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="logPrev" onclick="logPage(-1)" disabled>‹ 上一页</button>
+        <button id="logNext" onclick="logPage(1)" disabled>下一页 ›</button>
+        <span id="logPageInfo"></span>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:6px;">
+        条件可选、可组合；点击行查看完整请求/响应详情。默认仅显示近 1 小时，无结果可放宽时间范围。
+      </div>
+    </div>
+
+    <!-- MQ 实收消息（全宽；生产者发送已移至「MQ 发送」页签） -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>MQ 实收消息 <button onclick="loadMqMessages(mqOffset)">刷新</button></h2>
+      <div class="input-group wrap">
+        <input type="text" id="mqQueueF" placeholder="队列（精确）">
+        <input type="text" id="mqMarkerF" placeholder="Marker（精确）">
+        <select id="mqReplyF">
+          <option value="">回复：全部</option>
+          <option>CONSUMED</option>
+          <option>FAILED</option>
+        </select>
+        <button onclick="loadMqMessages(0)">查询</button>
+        <button class="btn-secondary" style="background:#334155; color:#e2e8f0;" onclick="mqResetF()">重置</button>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>ID</th><th>时间</th><th>队列</th><th>MessageId</th><th>Marker</th><th>回复</th><th>确认</th><th>耗时</th></tr></thead>
+          <tbody id="mqMsgsBody"><tr><td colspan="8" class="empty">加载中...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button id="mqPrev" onclick="mqPage(-1)" disabled>‹ 上一页</button>
+        <button id="mqNext" onclick="mqPage(1)" disabled>下一页 ›</button>
+        <span id="mqPageInfo"></span>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:6px;">
+        点击行查看消息属性 / Headers（含 x-death 死信链）/ 回复快照。消费方在「MQ 消费方」页签配置。
+      </div>
+    </div>
+
+  </div><!-- /pane_overview -->
+
+  <!-- 页签 2：目标服务 -->
+  <div class="tab-pane" id="pane_targets">
+    <div class="card">
+      <h2>目标服务配置
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="editTarget(null)" style="background:#0ea5e9; color:#fff;">＋ 新增服务</button>
+        </span>
+      </h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>路径</th><th>名称</th><th>方法</th><th>响应码</th><th>模板</th><th>启用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="targetsBody">
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        保存即生效（无需重启）。模板支持 @参数 取值（见编辑页）；固定端点（/api/echo 等）由代码定义，不可覆盖。
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 3：全局参数 -->
+  <div class="tab-pane" id="pane_params">
+    <div class="card">
+      <h2>全局参数
+        <button onclick="editParam(null)" style="background:#0ea5e9; color:#fff;">＋ 新增参数</button>
+      </h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>Key</th><th>Value</th><th>备注</th><th>操作</th></tr>
+          </thead>
+          <tbody id="paramsBody">
+            <tr><td colspan="4" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        响应模板中以 @key 引用，修改即时生效。内置动态参数：@time @date @datetime @timestamp @uuid @random @random:1-100 @pick:a|b|c
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 4：统计指标 -->
+  <div class="tab-pane" id="pane_metrics">
+    <div class="card">
+      <h2>统计指标
+        <button onclick="editMetric(null)" style="background:#0ea5e9; color:#fff;">＋ 新增指标</button>
+      </h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>关键字</th><th>启用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="metricsBody">
+            <tr><td colspan="4" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        指标 = 名称 + 关键字（对实收消息的「路径 / 目标」模糊匹配，如 order、echo、/api/pay）；
+        配置并启用后，「概览 → 统计概览」将按指标展示收包计数，随时可增删。
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 5：故障注入场景 -->
+  <div class="tab-pane" id="pane_faults">
+    <div class="card">
+      <h2>故障注入场景
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="editScenario(null)" style="background:#0ea5e9; color:#fff;">＋ 新增场景</button>
+          <button onclick="loadScenarios()">刷新</button>
+          <button onclick="disableAllScenarios()" title="停用全部场景（不删除）">全部停用</button>
+        </span>
+      </h2>
+      <div class="scroll" style="max-height:620px;">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>类型</th><th>生效目标</th><th>概率</th><th>参数</th><th>启用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="scenariosBody">
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        场景 = 固定故障类型（失败 / 超时 / 延迟 / 自定义响应）× 动态生效目标 × 触发概率；
+        请求链中按场景优先于旧版 fault_mode 生效，「延迟」类型不影响响应结果。
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 6：MQ 消费方 -->
+  <div class="tab-pane" id="pane_mqconsumers">
+    <div class="card">
+      <h2>MQ 消费方（RabbitMQ）
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="editMqConsumer(null)" style="background:#0ea5e9; color:#fff;">＋ 新增消费方</button>
+          <button onclick="loadMqConsumers()">刷新</button>
+        </span>
+      </h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>连接</th><th>队列</th><th>确认模式</th><th>延迟</th><th>回复</th><th>运行状态</th><th>已消费</th><th>启用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="mqConsumersBody">
+            <tr><td colspan="10" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        每个消费方 = 独立连接 + 单队列；确认模式：<b>ack</b>=确认 / <b>nack+requeue</b>=退回重投（测幂等）/
+        <b>nack</b>=进死信 / <b>reject</b>=拒绝 / <b>hold</b>=不确认（测超时）；回复模板在编辑页配置，占位符支持 {{messageId}}、{{status}}、{{body.字段}}。
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 7：MQ 生产者 -->
+  <div class="tab-pane" id="pane_mqproducers">
+    <div class="card">
+      <h2>MQ 生产者（RabbitMQ）
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="editMqProducer(null)" style="background:#0ea5e9; color:#fff;">＋ 新增生产者</button>
+          <button onclick="loadMqProducers()">刷新</button>
+        </span>
+      </h2>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>名称</th><th>连接</th><th>Exchange</th><th>RoutingKey</th><th>ContentType</th><th>启用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="mqProducersBody">
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        生产者在「MQ 发送」页签选用；发送走 publisher confirm + mandatory（不可路由会明确提示）。
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 8：MQ 生产者发送 -->
+  <div class="tab-pane" id="pane_mqsends">
+    <div class="card">
+      <h2>MQ 生产者发送 <button onclick="loadMqSendCard()">刷新</button></h2>
+      <div class="input-group">
+        <select id="sendProducer" onchange="onSendProducerChange()" style="max-width:none;">
+          <option value="">（先在「MQ 生产者」页签配置）</option>
+        </select>
+      </div>
+      <table class="kv-table" style="margin-bottom:10px;">
+        <tr><td>Routing Key</td><td><input id="sendRk" placeholder="（默认交换机=队列名）" style="width:90%;"></td></tr>
+        <tr><td>Content-Type</td><td><input id="sendCt" list="mqCtList" value="application/json" style="width:90%;">
+          <datalist id="mqCtList">
+            <option>application/json</option><option>application/xml</option><option>text/xml</option>
+            <option>text/plain</option><option>application/octet-stream</option>
+          </datalist></td></tr>
+        <tr><td>持久化</td><td><label style="cursor:pointer;"><input type="checkbox" id="sendPersist" checked> delivery_mode=2（持久消息）</label></td></tr>
+        <tr><td>优先级</td><td><input id="sendPriority" type="number" min="0" max="9" value="0" style="width:70px;">（0-9）</td></tr>
+        <tr><td>TTL(ms)</td><td><input id="sendTtl" placeholder="留空=不过期" style="width:40%;"></td></tr>
+        <tr><td>CorrelationId</td><td><input id="sendCid" placeholder="留空=自动 UUID" style="width:60%;"></td></tr>
+        <tr><td>ReplyTo</td><td><input id="sendReplyTo" placeholder="留空=不回复；填队列名（如 reply.demo）消费方将回写确认" style="width:60%;"></td></tr>
+        <tr><td>Headers</td><td><input id="sendHeaders" placeholder='JSON 对象，如 {"source":"faux"}' style="width:90%;"></td></tr>
+      </table>
+      <textarea id="sendBody" rows="12" placeholder='{"marker":"TC-MQ-001","messageId":"M-001","bizData":{"orderNo":"A123"}}'></textarea>
+      <div style="font-size:12px; color:#64748b; margin-top:4px;">
+        消息体发送前自动渲染 @参数（与目标服务响应模板同引擎）：全局参数 @key + 内置 @time @date @datetime @timestamp @uuid @random @random:1-100 @pick:a|b|c。
+      </div>
+      <div class="actions" style="margin-top:8px;">
+        <button class="btn-secondary" onclick="fillMqSample()">重置示例</button>
+        <button class="btn-secondary" onclick="formatMqBody()">格式化 JSON</button>
+        <button class="btn-secondary" onclick="previewMqBody()">渲染预览</button>
+        <button class="btn-primary" onclick="sendMqMessage()">发送 ▶</button>
+      </div>
+      <pre id="sendResult" style="display:none; margin-top:8px;"></pre>
+      <h4 style="color:#94a3b8; font-size:12px; margin:12px 0 4px; border-bottom:1px solid #334155; padding-bottom:4px;">最近发送（点击行查看详情）</h4>
+      <div class="scroll" style="max-height:320px;">
+        <table>
+          <thead><tr><th>时间</th><th>生产者</th><th>RoutingKey</th><th>结果</th><th>耗时</th></tr></thead>
+          <tbody id="sendsBody"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 页签 9：认证 -->
+  <div class="tab-pane" id="pane_auth">
+
+    <!-- 认证配置 -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>认证配置
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="loadAuth()">刷新</button>
+          <button style="background:#0ea5e9; color:#fff;" onclick="saveAuthConfig()">保存配置</button>
+        </span>
+      </h2>
+      <div class="input-group wrap" style="align-items:center;">
+        <label style="display:flex; align-items:center; gap:6px; flex:0 0 auto; font-size:13px;">
+          <input type="checkbox" id="authEnabled" style="width:16px; height:16px;"> 认证开关（关闭 = 不做任何校验，与历史行为一致）
+        </label>
+        <select id="authMode" onchange="onAuthModeChange()" style="max-width:280px;">
+          <option value="none">不做认证（默认）</option>
+          <option value="jwt">JWT（HS256 真实签发 + 校验）</option>
+          <option value="bearer">Bearer 不透明令牌</option>
+          <option value="basic">Basic 用户名/密码</option>
+          <option value="apikey">API Key 请求头</option>
+        </select>
+        <span id="authStateTip" style="font-size:12px; color:#94a3b8;"></span>
+      </div>
+
+      <div style="font-size:12px; color:#0ea5e9; background:#f0f9ff; border-left:3px solid #0ea5e9; padding:6px 10px; margin:6px 0;">
+        本卡 = <b>全局默认</b>：未被下方「认证规则」命中的路径用这里的值；被规则命中的路径以规则为准
+        （规则里留空的项仍沿用此处）。标 <span style="color:#64748b;">可覆盖</span> 的项能被规则改写，
+        标 <span style="color:#64748b;">仅全局</span> 的项规则无法改写。
+      </div>
+      <table class="kv-table">
+        <tr><td>JWT 密钥 <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td><input id="authSecret" style="width:60%;" placeholder="HS256 签名密钥">
+          <span style="font-size:12px; color:#64748b;">JWT 模式必填；可用 jwt.io 选 HS256 验证</span></td></tr>
+        <tr><td>iss / aud <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td><input id="authIssuer" style="width:30%;" placeholder="issuer">
+          <input id="authAudience" style="width:30%;" placeholder="audience（可空）"></td></tr>
+        <tr><td>有效期（秒） <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td>access <input id="authAccessTtl" type="number" min="1" style="width:90px;">
+          refresh <input id="authRefreshTtl" type="number" min="1" style="width:110px;">
+          <span style="font-size:12px; color:#64748b;">调用方 expires_in 取 access TTL（建议 ≥60）</span></td></tr>
+        <tr><td>客户端凭据 <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td><input id="authClientId" style="width:30%;" placeholder="client_id">
+          <input id="authClientSecret" style="width:30%;" placeholder="client_secret">
+          <span style="font-size:12px; color:#64748b;">换票端点凭据校验<b>始终</b>取此处</span></td></tr>
+        <tr><td>换票端点认证 <span style="font-size:11px; color:#64748b;">仅全局</span></td><td><select id="authEndpointAuth">
+          <option value="basic">basic（Basic 头带 clientId:clientSecret，最常见）</option>
+          <option value="apikey">apikey（X-API-Key 头）</option>
+          <option value="body">body（client_id/client_secret 进请求体）</option>
+          <option value="none">none（不校验凭据）</option>
+        </select></td></tr>
+        <tr><td>API Key <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td><input id="authApikeyHeader" style="width:25%;" placeholder="头名 X-API-Key">
+          <input id="authApikeyValue" style="width:35%;" placeholder="期望值（留空则用 client_secret）"></td></tr>
+        <tr><td>Basic 账号 <span style="font-size:11px; color:#64748b;">可覆盖</span></td><td><input id="authBasicUser" style="width:30%;" placeholder="业务请求 Basic 用户名">
+          <input id="authBasicPass" style="width:30%;" placeholder="密码"></td></tr>
+        <tr><td>保护范围 <span style="font-size:11px; color:#64748b;">仅全局</span></td><td><select id="authProtectScope">
+          <option value="business">仅业务端点（推荐：管理 API 与 /api/auth 不拦截）</option>
+          <option value="all">含管理 API（慎用：页面也会 401）</option>
+        </select></td></tr>
+        <tr><td>换票响应模板 <span style="font-size:11px; color:#64748b;">仅全局</span></td><td><input id="authRespTpl" style="width:90%;"
+          placeholder="留空=标准 OAuth2；可用 @access_token @refresh_token @expires_in @token_type @client_id"></td></tr>
+        <tr><td>其他 <span style="font-size:11px; color:#64748b;">仅全局</span></td><td><label style="cursor:pointer;"><input type="checkbox" id="authReuseRevoke"> refresh_token 被复用时吊销同 client 全部令牌（泄漏检测）</label></td></tr>
+      </table>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        换票端点：<code>POST http://localhost:8081/api/auth/token</code>（支持 JSON / form / query 传参）；
+        grant_type 支持 <code>client_credentials</code> / <code>password</code> / <code>refresh_token</code>。
+        <span id="authRuleTip"></span>
+      </div>
+    </div>
+
+    <!-- 认证规则（按路径多重认证） -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>认证规则（按路径多重认证）
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button style="background:#0ea5e9; color:#fff;" onclick="editAuthRule(null)">＋ 新增规则</button>
+          <button onclick="loadAuthRules()">刷新</button>
+        </span>
+      </h2>
+      <div class="scroll" style="max-height:320px;">
+        <table>
+          <thead>
+            <tr><th>启用</th><th>路径模式</th><th>认证方式（任一通过即放行）</th><th>优先级</th>
+                <th>覆盖参数</th><th>备注</th><th>操作</th></tr>
+          </thead>
+          <tbody id="authRulesBody">
+            <tr><td colspan="7" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        <b>前置</b>：上方「认证配置」的总开关必须开启，否则规则不生效（整体放行）。
+        优先级：<b>命中规则 → 全局方式</b>；未命中任何规则的路径回退「认证配置」的全局方式；
+        一条规则可配多种方式（<b>任一通过即放行</b>）；modes 含 <code>none</code> = 该路径免认证。
+        路径模式支持精确（<code>/api/echo</code>）与前缀通配（<code>/api/pay*</code>）；
+        优先级大者优先，同级更具体的 pattern 优先。覆盖参数留空 = 沿用全局配置。
+      </div>
+    </div>
+
+    <!-- 当前令牌 -->
+    <div class="card" style="margin-bottom:20px;">
+      <h2>当前令牌
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button style="background:#0ea5e9; color:#fff;" onclick="issueAuthToken()">＋ 签发一对</button>
+          <button onclick="loadAuthTokens()">刷新</button>
+          <button class="btn-secondary" style="background:#b45309; color:#fff;" onclick="expireAccessAction()"
+                  title="仅让 access 立即过期，refresh 仍有效 → 对端应走刷新流程">access 立即过期</button>
+          <button class="btn-secondary" style="background:#ef4444; color:#fff;" onclick="revokeAllAction()"
+                  title="整对作废（refresh 也废）→ 对端只能重新完整认证">全部失效</button>
+        </span>
+      </h2>
+      <div class="input-group wrap">
+        <input type="text" id="tokClient" placeholder="按 client 过滤">
+        <select id="tokStatus">
+          <option value="">状态：全部</option>
+          <option>ACTIVE</option><option>EXPIRED</option><option>ROTATED</option><option>REVOKED</option>
+        </select>
+        <button onclick="loadAuthTokens()">查询</button>
+      </div>
+      <div class="scroll" style="max-height:420px;">
+        <table>
+          <thead>
+            <tr><th>ID</th><th>类型</th><th>Client</th><th>状态</th><th>access_token</th>
+                <th>refresh_token</th><th>access 剩余</th><th>refresh 剩余</th><th>使用</th><th>操作</th></tr>
+          </thead>
+          <tbody id="authTokensBody">
+            <tr><td colspan="10" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        点击 token 单元格可切换「打码 / 明文」；「立即失效」= REVOKED（access + refresh 同时作废，对端 401 后只能重新完整认证）。
+      </div>
+    </div>
+
+    <!-- 认证请求留痕 -->
+    <div class="card">
+      <h2>认证请求留痕
+        <span style="display:flex; gap:8px; align-items:center;">
+          <button onclick="loadAuthRequests()">刷新</button>
+          <button class="btn-secondary" style="background:#334155; color:#e2e8f0;" onclick="resetAuthRequests()">清空</button>
+        </span>
+      </h2>
+      <div class="input-group wrap">
+        <select id="arKind">
+          <option value="">类型：全部</option>
+          <option value="token">换票</option><option value="refresh">刷新</option>
+          <option value="verify">入站校验</option><option value="revoke">失效</option>
+        </select>
+        <select id="arResult">
+          <option value="">结果：全部</option>
+          <option value="success">success</option><option value="failed">failed</option>
+          <option value="rejected">rejected</option><option value="reuse_detected">reuse_detected</option>
+          <option value="revoked">revoked</option>
+        </select>
+        <input type="text" id="arClient" placeholder="client（模糊）">
+        <button onclick="loadAuthRequests()">查询</button>
+      </div>
+      <div class="scroll" style="max-height:460px;">
+        <table>
+          <thead>
+            <tr><th>时间</th><th>类型</th><th>grant</th><th>client</th><th>结果</th><th>码</th>
+                <th>路径</th><th>请求体</th><th>响应体</th><th>说明</th></tr>
+          </thead>
+          <tbody id="authRequestsBody">
+            <tr><td colspan="10" class="empty">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:12px; color:#64748b; margin-top:8px;">
+        换票 / 刷新 / 入站校验失败 / 失效操作全部留痕（含请求头体与响应体）；点击行查看完整详情。
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<!-- 实收消息详情弹窗 -->
+<div id="detailOverlay" onclick="if(event.target===this)hideDetail()">
+  <div class="detail-box">
+    <h3><span id="detailTitle">实收消息详情</span><button onclick="hideDetail()">关闭 ✕</button></h3>
+    <div id="detailContent"><div class="empty">加载中...</div></div>
+  </div>
+</div>
+
+<!-- Content-Type 常用值选择弹窗（叠加在编辑弹窗之上） -->
+<div id="ctOverlay" onclick="if(event.target===this)closeCtPicker()" style="position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 200; align-items: center; justify-content: center; padding: 20px;">
+  <div class="detail-box" style="width: 480px;">
+    <h3><span>选择常用 Content-Type</span><button onclick="closeCtPicker()">关闭 ✕</button></h3>
+    <div id="ctList" class="scroll"></div>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-secondary" onclick="closeCtPicker()">取消</button>
+      <button class="btn-secondary" onclick="applyCtPicker(true)">清空并追加</button>
+      <button class="btn-primary" onclick="applyCtPicker()">追加到输入框</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+let autoRefresh = null;
+
+let _toastTimer = null;
+function toast(msg, ms = 3000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.style.display = 'none', ms);
+}
+
+async function api(path, opts = {}) {
+  try {
+    const r = await fetch(API + path, opts);
+    return await r.json();
+  } catch (e) {
+    toast('请求失败: ' + e.message);
+    return null;
+  }
+}
+
+// ── 统计（总数 + 近24h + 响应类型汇总 + 配置指标） ──
+async function loadStats(manual) {
+  const d = await api('/api/logs/stats');
+  if (!d) return;
+  if (manual) toast('统计已刷新');
+  const el = document.getElementById('stats');
+  const t = d.by_response_type || {};
+  const stat = (n, l) => `<div class="stat"><div class="num">${n ?? 0}</div><div class="label">${l}</div></div>`;
+  let html = stat(d.total, '总收消息') + stat(d.recent_24h, '近 24 小时');
+  html += stat(t.success, '成功') + stat(t.fail, '失败') + stat(t.timeout, '超时')
+        + stat(t.not_found, '未找到') + stat(t.custom, '自定义');
+  const mets = Object.entries(d.by_metric || {});
+  if (mets.length) html += mets.map(([n, c]) => stat(c, escapeHtml(n))).join('');
+  else html += `<div class="stat" style="opacity:.7;"><div class="label" style="margin-top:10px;">暂无自定义指标 — 在「统计指标」页签配置关注关键字</div></div>`;
+  el.innerHTML = html;
+}
+
+// ── 日志 ──
+const logRows = {};  // id → 行数据缓存（弹窗用）
+const LOG_PAGE = 50;
+let logOffset = 0;
+
+function logQueryStr() {
+  const p = new URLSearchParams();
+  const kw = document.getElementById('logKw').value.trim();
+  const mk = document.getElementById('logMarker').value.trim();
+  const tg = document.getElementById('logTarget').value.trim();
+  const tp = document.getElementById('logType').value;
+  const rng = document.getElementById('logRange').value;
+  if (kw) p.set('kw', kw);
+  if (mk) p.set('marker', mk);
+  if (tg) p.set('target', tg);
+  if (tp) p.set('resp_type', tp);
+  if (rng && rng !== '0') p.set('minutes', rng);
+  return p.toString();
+}
+
+async function loadLogs(offset) {
+  logOffset = offset || 0;
+  const body = document.getElementById('logsBody');
+  body.innerHTML = '<tr><td colspan="8" class="empty">查询中...</td></tr>';
+  const qs = logQueryStr();
+  const d = await api(`/api/logs?${qs}${qs ? '&' : ''}limit=${LOG_PAGE}&offset=${logOffset}`);
+  if (!d) { body.innerHTML = '<tr><td colspan="8" class="empty">请求失败</td></tr>'; return; }
+  const items = d.items || [];
+  if (items.length === 0) {
+    body.innerHTML = '<tr><td colspan="8" class="empty">无匹配记录（可放宽时间范围或过滤条件）</td></tr>';
+  } else {
+    body.innerHTML = items.map(r => {
+      const badge = r.response_type ? `badge-${r.response_type}` : '';
+      const {date, time} = fmtTs(r.ts);
+      logRows[r.id] = r;
+      return `<tr onclick="showDetail(${r.id})" title="点击查看完整请求/响应详情">
+        <td>${r.id}</td>
+        <td>${date}</td>
+        <td>${time}</td>
+        <td>${r.target}</td>
+        <td>${r.method}</td>
+        <td title="${r.body || ''}">${r.marker || '-'}</td>
+        <td>${r.status_code}</td>
+        <td><span class="badge ${badge}">${r.response_type || '-'}</span></td>
+      </tr>`;
+    }).join('');
+  }
+  const page = Math.floor(logOffset / LOG_PAGE) + 1;
+  const pages = Math.max(1, Math.ceil(d.total / LOG_PAGE));
+  document.getElementById('logPageInfo').textContent = `共 ${d.total} 条 · 第 ${page}/${pages} 页`;
+  document.getElementById('logPrev').disabled = logOffset <= 0;
+  document.getElementById('logNext').disabled = logOffset + LOG_PAGE >= d.total;
+}
+
+function logPage(dir) {
+  const next = logOffset + dir * LOG_PAGE;
+  if (next < 0) return;
+  loadLogs(next);
+}
+
+function logReset() {
+  document.getElementById('logKw').value = '';
+  document.getElementById('logMarker').value = '';
+  document.getElementById('logTarget').value = '';
+  document.getElementById('logType').value = '';
+  document.getElementById('logRange').value = '60';
+  loadLogs(0);
+}
+
+// ── 消息详情弹窗 ──
+function escapeHtml(s) {
+  return (s ?? '').toString()
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
+// UTC ISO 时间戳 → 本地时区（北京环境即北京时间）{date, time, full}
+function fmtTs(ts) {
+  if (!ts) return {date: '-', time: '-', full: '-'};
+  // Python isoformat 微秒 6 位，超出 JS 规范的 3 位，截断保证解析正确
+  const d = new Date(String(ts).replace(/(\.\d{3})\d+/, '$1'));
+  if (isNaN(d.getTime())) return {date: String(ts).split('T')[0], time: '-', full: ts};
+  const p = n => String(n).padStart(2, '0');
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  const time = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  return {date, time, full: `${date} ${time}`};
+}
+
+function prettyJson(text) {
+  // 尝试 JSON 美化，失败则原样返回
+  try {
+    const obj = JSON.parse(text);
+    return JSON.stringify(obj, null, 2);
+  } catch (e) {
+    return text;
+  }
+}
+
+function headersToTable(headersText) {
+  if (!headersText) return '<div class="empty">（无）</div>';
+  let obj = null;
+  try { obj = JSON.parse(headersText); } catch (e) { return `<pre>${escapeHtml(headersText)}</pre>`; }
+  if (!obj || typeof obj !== 'object') return '<div class="empty">（无）</div>';
+  let html = '<table class="kv-table">';
+  for (const [k, v] of Object.entries(obj)) {
+    html += `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`;
+  }
+  return html + '</table>';
+}
+
+async function showDetail(id) {
+  const overlay = document.getElementById('detailOverlay');
+  const content = document.getElementById('detailContent');
+  overlay.style.display = 'flex';
+  content.innerHTML = '<div class="empty">加载中...</div>';
+
+  // 优先取详情接口（数据最新鲜），失败时回退行内缓存
+  let r = await api(`/api/logs/${id}`);
+  if (!r || r.detail) r = logRows[id];
+  if (!r) { content.innerHTML = '<div class="empty">未找到记录</div>'; return; }
+
+  document.getElementById('detailTitle').textContent = `实收消息 #${r.id} 详情`;
+
+  const respBody = r.response_body ?? '（未记录 — 此消息产生于版本升级前）';
+  content.innerHTML = `
+    <h4>基本信息</h4>
+    <table class="kv-table">
+      <tr><td>时间（本地）</td><td>${escapeHtml(fmtTs(r.ts).full)} <span style="color:#64748b">（库内 UTC: ${escapeHtml(r.ts)}）</span></td></tr>
+      <tr><td>目标 / 方法</td><td>${escapeHtml(r.target)} &nbsp; ${escapeHtml(r.method)}</td></tr>
+      <tr><td>路径</td><td>${escapeHtml(r.path)}</td></tr>
+      <tr><td>Content-Type</td><td>${escapeHtml(r.content_type || '-')}</td></tr>
+      <tr><td>Marker</td><td>${escapeHtml(r.marker || '-')}</td></tr>
+      <tr><td>Body 长度</td><td>${r.body_len} 字节</td></tr>
+      <tr><td>响应状态</td><td>HTTP ${r.status_code ?? '-'}（${escapeHtml(r.response_type || '-')}）</td></tr>
+    </table>
+    <h4>请求 Headers（发送方）</h4>
+    ${headersToTable(r.headers)}
+    <h4>请求 Body（发送方）</h4>
+    <pre>${escapeHtml(prettyJson(r.body || '（空）'))}</pre>
+    <h4>响应 Headers</h4>
+    ${headersToTable(r.response_headers)}
+    <h4>响应 Body</h4>
+    <pre>${escapeHtml(prettyJson(respBody))}</pre>
+  `;
+}
+
+function hideDetail() {
+  document.getElementById('detailOverlay').style.display = 'none';
+}
+
+// Esc 关闭弹窗
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideDetail(); });
+
+// ── 故障场景（故障类型固定 × 目标动态 × 概率触发） ──
+const FAULT_TYPES = {
+  fail:    {label: '失败',   badge: 'badge-fail',    desc: '按概率返回错误状态码'},
+  timeout: {label: '超时',   badge: 'badge-timeout', desc: '睡眠 N 秒后返回 504'},
+  latency: {label: '延迟',   badge: 'badge-latency', desc: '成功响应前附加延迟，不改变结果'},
+  custom:  {label: '自定义', badge: 'badge-custom',  desc: '自定义状态码 + 响应体模板'},
+};
+let editingScenarioId = null;
+let editingScope = [];   // 生效目标 path 列表；空 = 全部
+
+async function loadScenarios() {
+  const d = await api('/api/faults');
+  if (!d) return;
+  const body = document.getElementById('scenariosBody');
+  window._scenarios = d.scenarios || [];
+  if (!window._scenarios.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">尚未配置 — 点击「＋ 新增场景」</td></tr>';
+    return;
+  }
+  body.innerHTML = window._scenarios.map(s => {
+    const ft = FAULT_TYPES[s.fault_type] || {label: s.fault_type, badge: ''};
+    let scope;
+    try { scope = typeof s.scope === 'string' ? JSON.parse(s.scope) : (s.scope || []); }
+    catch (e) { scope = []; }
+    const scopeTxt = scope.length ? scope.join('、') : '全部目标';
+    const param = s.fault_type === 'fail' ? `HTTP ${s.status_code}`
+                : s.fault_type === 'timeout' ? `${s.timeout_seconds}s`
+                : s.fault_type === 'latency' ? `${s.latency_ms}ms`
+                : `HTTP ${s.status_code} + 模板`;
+    return `<tr>
+      <td>${escapeHtml(s.name)}</td>
+      <td><span class="badge ${ft.badge}">${ft.label}</span></td>
+      <td title="${escapeHtml(scopeTxt)}">${escapeHtml(scopeTxt.length > 22 ? scopeTxt.slice(0, 22) + '…' : scopeTxt)}</td>
+      <td>${s.probability}%</td>
+      <td>${param}</td>
+      <td style="cursor:pointer;" onclick="toggleScenario(${s.id}, ${s.enabled ? 0 : 1})" title="点击切换">${s.enabled ? '✅' : '⛔'}</td>
+      <td>
+        <button class="mini-btn" onclick="editScenario(${s.id})">编辑</button>
+        <button class="mini-btn danger" onclick="delScenario(${s.id}, '${escapeHtml(s.name)}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function editScenario(id) {
+  editingScenarioId = id;
+  let s = {name: '', fault_type: 'fail', probability: 100, status_code: 500,
+           latency_ms: 0, timeout_seconds: 30, body_template: '', scope: [], enabled: 1};
+  if (id != null) {
+    const d = await api('/api/faults');
+    s = (d.scenarios || []).find(x => x.id === id) || s;
+  }
+  if (typeof s.scope === 'string') {
+    try { s.scope = JSON.parse(s.scope); } catch (e) { s.scope = []; }
+  }
+  editingScope = (s.scope || []).slice();
+  document.getElementById('detailTitle').textContent = id ? `编辑场景 #${id} — ${s.name}` : '新增故障场景';
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>名称 *</td><td><input id="scName" value="${escapeHtml(s.name)}" placeholder="如：下游网关 502" style="width:70%;"></td></tr>
+      <tr><td>故障类型 *</td><td><select id="scType" onchange="onFaultTypeChange()">
+        ${Object.entries(FAULT_TYPES).map(([k, v]) =>
+          `<option value="${k}" ${s.fault_type === k ? 'selected' : ''}>${v.label} — ${v.desc}</option>`).join('')}
+      </select></td></tr>
+      <tr><td>触发概率 *</td><td><input id="scProb" type="number" value="${s.probability}" min="0" max="100" style="width:90px;"> %（每次匹配请求独立掷骰）</td></tr>
+      <tr class="rt-fail rt-custom"><td>响应码</td><td><input id="scCode" type="number" value="${s.status_code}" min="100" max="599" style="width:90px;"></td></tr>
+      <tr class="rt-timeout"><td>超时秒数</td><td><input id="scTimeout" type="number" value="${s.timeout_seconds}" min="0" style="width:90px;"> 秒（睡眠后返回 504）</td></tr>
+      <tr class="rt-latency"><td>延迟</td><td><input id="scLatency" type="number" value="${s.latency_ms}" min="0" style="width:110px;"> 毫秒（慢但成功，不影响响应结果）</td></tr>
+      <tr><td>生效目标</td><td><div class="chips" id="scScope"></div>
+        <div style="font-size:12px;color:#64748b;">不勾选具体目标 = 对全部请求生效（含未定义路径与固定端点）</div></td></tr>
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="scEnabled" ${s.enabled ? 'checked' : ''}> 启用</label></td></tr>
+    </table>
+    <div class="rt-custom" style="display:none;">
+      <h4>自定义响应体模板（支持 @参数，点击插入）</h4>
+      <div class="chips">${tplChipsHtml('sBody')}</div>
+      <textarea id="sBody" rows="6" placeholder='{"code":"X500","msg":"服务暂不可用","sid":"@pick:A|B"}'>${escapeHtml(s.body_template || '')}</textarea>
+    </div>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-primary" onclick="saveScenario()">保存</button>
+    </div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+  renderScopeChips();
+  onFaultTypeChange();
+}
+
+function onFaultTypeChange() {
+  const t = document.getElementById('scType').value;
+  document.querySelectorAll('.rt-fail,.rt-timeout,.rt-latency,.rt-custom').forEach(el => {
+    el.style.display = el.classList.contains('rt-' + t) ? '' : 'none';
+  });
+}
+
+function renderScopeChips() {
+  const box = document.getElementById('scScope');
+  if (!box) return;
+  let html = `<span class="chip ${editingScope.length ? '' : 'on'}" onclick="toggleScopeAll()">全部目标</span>`;
+  for (const t of (window._targets || [])) {
+    html += `<span class="chip ${editingScope.includes(t.path) ? 'on' : ''}" onclick="toggleScopePath('${escapeHtml(t.path)}')" title="${escapeHtml(t.name || '')}">${escapeHtml(t.path)}</span>`;
+  }
+  box.innerHTML = html;
+}
+
+function toggleScopeAll() { editingScope = []; renderScopeChips(); }
+function toggleScopePath(p) {
+  const i = editingScope.indexOf(p);
+  i >= 0 ? editingScope.splice(i, 1) : editingScope.push(p);
+  renderScopeChips();
+}
+
+async function saveScenario() {
+  const payload = {
+    name: document.getElementById('scName').value.trim(),
+    fault_type: document.getElementById('scType').value,
+    probability: parseInt(document.getElementById('scProb').value) || 0,
+    status_code: parseInt(document.getElementById('scCode').value) || 500,
+    timeout_seconds: parseInt(document.getElementById('scTimeout').value) || 0,
+    latency_ms: parseInt(document.getElementById('scLatency').value) || 0,
+    body_template: (document.getElementById('sBody') || {}).value || '',
+    scope: editingScope,
+    enabled: document.getElementById('scEnabled').checked,
+  };
+  if (!payload.name) { toast('名称必填'); return; }
+  if (!(payload.probability >= 0 && payload.probability <= 100)) { toast('概率需在 0-100'); return; }
+  const opts = {method: editingScenarioId == null ? 'POST' : 'PUT',
+                headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
+  const d = await api(editingScenarioId == null ? '/api/faults' : `/api/faults/${editingScenarioId}`, opts);
+  if (!d || d.detail) { toast('保存失败: ' + JSON.stringify((d && d.detail) || '')); return; }
+  toast('场景已保存，请求链即时生效');
+  hideDetail();
+  loadScenarios();
+}
+
+async function toggleScenario(id, en) {
+  const d = await api(`/api/faults/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: !!en})});
+  if (d && !d.detail) loadScenarios();
+}
+
+async function delScenario(id, name) {
+  if (!confirm(`确认删除场景「${name}」？`)) return;
+  const d = await api(`/api/faults/${id}`, {method: 'DELETE'});
+  if (d && !d.detail) { toast('已删除'); loadScenarios(); }
+}
+
+async function disableAllScenarios() {
+  if (!confirm('确认停用全部故障场景？（配置保留，可重新启用）')) return;
+  const d = await api('/api/faults/disable-all', {method: 'POST'});
+  if (d && !d.detail) { toast(`已停用 ${d.disabled} 个场景`); loadScenarios(); }
+}
+
+// ── 日志重置 ──
+async function resetLogs() {
+  if (!confirm('确认清空所有实收记录？')) return;
+  const d = await api('/api/logs/reset', {method: 'POST'});
+  if (d) { toast(`已清空 ${d.deleted} 条`); loadLogs(0); loadStats(); }
+}
+
+// ── 主页签 ──
+const MAIN_TABS = ['overview', 'targets', 'params', 'metrics', 'faults', 'mqconsumers', 'mqproducers', 'mqsends', 'auth'];
+function switchTab(name) {
+  for (const n of MAIN_TABS) {
+    document.getElementById('tabBtn_' + n).classList.toggle('active', n === name);
+    document.getElementById('pane_' + n).classList.toggle('active', n === name);
+  }
+  // 切入页签时刷新对应数据
+  if (name === 'faults') loadScenarios();
+  if (name === 'mqsends') loadMqSendCard();
+  if (name === 'auth') loadAuth();
+}
+
+// ── 目标服务配置 ──
+const HTTP_METHODS = ['POST', 'PUT', 'GET', 'DELETE', 'PATCH'];
+const DYN_CHIPS = [
+  ['@time', '当前时间 HH:MM:SS（北京）'],
+  ['@date', '当前日期 YYYY-MM-DD（北京）'],
+  ['@datetime', '日期时间 YYYY-MM-DD HH:MM:SS（北京）'],
+  ['@timestamp', 'Unix 时间戳（秒）'],
+  ['@uuid', '随机 UUID'],
+  ['@random', '6 位随机整数'],
+  ['@random:1-100', '范围内随机整数'],
+  ['@pick:a|b|c', '列表随机取值（| 分隔）'],
+];
+let editingTargetId = null;
+
+async function loadTargets() {
+  const d = await api('/api/targets');
+  if (!d) return;
+  window._targets = d.targets || [];
+  const body = document.getElementById('targetsBody');
+  if (!d.targets || d.targets.length === 0) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">尚未配置 — 点击「＋ 新增服务」</td></tr>';
+    return;
+  }
+  body.innerHTML = d.targets.map(t => `
+    <tr>
+      <td title="模板：${escapeHtml(t.response_template || '（默认）')}">${escapeHtml(t.path)}</td>
+      <td>${escapeHtml(t.name || '-')}</td>
+      <td>${escapeHtml(t.methods)}</td>
+      <td>${t.status_code}</td>
+      <td title="${escapeHtml((t.response_template || '').slice(0, 300))}">${t.response_template ? (t.response_template.length > 26 ? escapeHtml(t.response_template.slice(0, 26)) + '…' : escapeHtml(t.response_template)) : '默认'}</td>
+      <td>${t.enabled ? '✅' : '⛔'}</td>
+      <td>
+        <button class="mini-btn" onclick="editTarget(${t.id})">编辑</button>
+        <button class="mini-btn danger" onclick="delTarget(${t.id}, '${escapeHtml(t.path)}')">删除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function tplChipsHtml(areaId = 'tTpl') {
+  let html = DYN_CHIPS.map(([k, d]) =>
+    `<span class="chip" onclick="insertTpl('${k}', '${areaId}')" title="${d}">${k}</span>`).join('');
+  for (const p of (window._gParams || [])) {
+    html += `<span class="chip chip-g" onclick="insertTpl('@${escapeHtml(p.key)}', '${areaId}')" title="全局参数：${escapeHtml(p.remark || p.value)}">@${escapeHtml(p.key)}</span>`;
+  }
+  return html;
+}
+
+async function editTarget(id) {
+  editingTargetId = id;
+  let t = {path: '', name: '', methods: 'POST,PUT,GET', status_code: 200,
+           response_template: '', content_type: 'application/json', enabled: 1};
+  if (id != null) {
+    const d = await api('/api/targets');
+    t = (d.targets || []).find(x => x.id === id) || t;
+  }
+  const sel = (t.methods || '').split(',');
+  document.getElementById('detailTitle').textContent = id ? `编辑服务 #${id} — ${t.path}` : '新增目标服务';
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>路径 *</td><td><input id="tPath" value="${escapeHtml(t.path)}" placeholder="/api/order/create 或 /svc/user/login" style="width:70%;">（任意以 / 开头的路径，保存即生效）</td></tr>
+      <tr><td>名称</td><td><input id="tName" value="${escapeHtml(t.name || '')}" style="width:70%;"></td></tr>
+      <tr><td>方法 *</td><td>${HTTP_METHODS.map(m =>
+        `<label style="margin-right:14px; cursor:pointer;"><input type="checkbox" id="tM${m}" ${sel.includes(m) ? 'checked' : ''}> ${m}</label>`).join('')}</td></tr>
+      <tr><td>响应码</td><td><input id="tCode" type="number" value="${t.status_code}" min="100" max="599" style="width:90px;">（成功时）</td></tr>
+      <tr><td>Content-Type</td><td><input id="tCt" value="${escapeHtml(t.content_type || 'application/json')}" style="width:55%;">
+        <button class="mini-btn" onclick="showCtPicker()" style="margin-left:6px;">常用值…</button></td></tr>
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="tEnabled" ${t.enabled ? 'checked' : ''}> 启用</label></td></tr>
+    </table>
+    <h4>响应模板（可编辑，点击参数插入）</h4>
+    <div class="chips" id="tplChips">${tplChipsHtml()}</div>
+    <textarea id="tTpl" rows="10" placeholder='{"code":0,"msg":"ok","orderNo":"@prefix-@random","time":"@datetime","status":"@pick:PASS|DONE"}'>${escapeHtml(t.response_template || '')}</textarea>
+    <div class="actions" style="margin-top:10px;">
+      <button class="btn-secondary" onclick="previewTpl()">渲染预览</button>
+      <button class="btn-secondary" onclick="saveTarget(false)">保存</button>
+      <button class="btn-primary" onclick="saveTarget(true)">保存并试发</button>
+    </div>
+    <pre id="tplPreview" style="display:none; margin-top:10px;"></pre>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+const CT_PRESETS = [
+  'application/json', 'application/xml', 'text/xml', 'text/plain', 'text/html',
+  'text/csv', 'application/x-www-form-urlencoded', 'multipart/form-data',
+  'application/soap+xml', 'application/octet-stream'];
+
+function ctValues() {
+  return (document.getElementById('tCt').value || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function showCtPicker() {
+  const cur = ctValues();
+  document.getElementById('ctList').innerHTML = CT_PRESETS.map(ct =>
+    `<label style="display:block; padding:6px 8px; cursor:pointer; border-bottom:1px solid #334155;">
+       <input type="checkbox" value="${ct}" ${cur.includes(ct) ? 'checked' : ''} style="margin-right:8px;">${ct}</label>`).join('');
+  document.getElementById('ctOverlay').style.display = 'flex';
+}
+
+function closeCtPicker() { document.getElementById('ctOverlay').style.display = 'none'; }
+
+function applyCtPicker(replace = false) {
+  const picked = [...document.querySelectorAll('#ctList input:checked')].map(i => i.value);
+  if (!picked.length) { toast('未勾选任何 Content-Type，请先勾选'); return; }
+  document.getElementById('tCt').value = replace
+    ? [...new Set(picked)].join(', ')
+    : [...new Set([...ctValues(), ...picked])].join(', ');
+  closeCtPicker();
+}
+
+function insertTpl(tok, areaId = 'tTpl') {
+  const ta = document.getElementById(areaId);
+  if (!ta) return;
+  const s = ta.selectionStart ?? ta.value.length;
+  const e = ta.selectionEnd ?? s;
+  ta.value = ta.value.slice(0, s) + tok + ta.value.slice(e);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = s + tok.length;
+}
+
+async function previewTpl() {
+  const tpl = document.getElementById('tTpl').value;
+  const d = await api('/api/targets/render', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({template: tpl})});
+  const el = document.getElementById('tplPreview');
+  el.style.display = 'block';
+  if (d && d.rendered !== undefined) el.textContent = '【渲染预览】\n' + (prettyJson(d.rendered) || '（空）');
+}
+
+function collectTargetForm() {
+  const methods = HTTP_METHODS.filter(m => document.getElementById('tM' + m).checked);
+  return {
+    path: document.getElementById('tPath').value.trim(),
+    name: document.getElementById('tName').value.trim(),
+    methods,
+    status_code: parseInt(document.getElementById('tCode').value) || 200,
+    content_type: document.getElementById('tCt').value.trim() || 'application/json',
+    response_template: document.getElementById('tTpl').value,
+    enabled: document.getElementById('tEnabled').checked,
+  };
+}
+
+async function saveTarget(andTest) {
+  const payload = collectTargetForm();
+  if (!payload.path) { toast('路径必填'); return; }
+  if (payload.methods.length === 0) { toast('至少选择一个 HTTP 方法'); return; }
+  const opts = {method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
+  let d;
+  if (editingTargetId == null) {
+    opts.method = 'POST';
+    d = await api('/api/targets', opts);
+  } else {
+    d = await api(`/api/targets/${editingTargetId}`, opts);
+  }
+  if (!d || d.detail) {
+    const msg = d && d.detail ? JSON.stringify(d.detail) : '网络错误';
+    toast('保存失败: ' + msg);
+    const el = document.getElementById('tplPreview');  // 弹窗内同步显示错误，避免 toast 一闪而过
+    if (el) { el.style.display = 'block'; el.textContent = '✗ 保存失败: ' + msg; }
+    return;
+  }
+  toast('已保存');
+  if (editingTargetId == null && d.id) editingTargetId = d.id;
+  loadTargets();
+  if (andTest) testTarget();
+  else hideDetail();  // 保存成功后关闭弹窗，露出已刷新的列表
+}
+
+async function testTarget() {
+  const p = collectTargetForm();
+  const method = p.methods.includes('POST') ? 'POST' : p.methods[0];
+  const el = document.getElementById('tplPreview');
+  el.style.display = 'block';
+  el.textContent = `▶ 试发 ${method} ${p.path} ...`;
+  try {
+    const r = await fetch(p.path, {
+      method,
+      headers: {'Content-Type': 'application/json'},
+      body: method === 'GET' ? undefined : JSON.stringify({marker: 'svc-test'}),
+    });
+    const text = await r.text();
+    el.textContent = `▶ 试发 ${method} ${p.path}\nHTTP ${r.status} ${r.statusText}\n\n${prettyJson(text)}`;
+  } catch (e) {
+    el.textContent = '试发失败: ' + e.message;
+  }
+}
+
+async function delTarget(id, path) {
+  if (!confirm(`确认删除服务 ${path}？`)) return;
+  const d = await api(`/api/targets/${id}`, {method: 'DELETE'});
+  if (d) { toast('已删除'); loadTargets(); }
+}
+
+async function exportAllConfig() {
+  try {
+    const r = await fetch(API + '/api/targets/export');
+    if (!r.ok) { toast('导出失败: HTTP ' + r.status); return; }
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'faux_export_' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast('已导出全部配置（服务、全局参数、故障模式/场景、统计指标、MQ 消费方/生产者）', 5000);
+  } catch (e) { toast('导出失败: ' + e.message); }
+}
+
+async function importAllConfig(input) {
+  const file = input.files && input.files[0];
+  input.value = '';  // 重置以支持重复选择同一文件
+  if (!file) return;
+  let payload;
+  try { payload = JSON.parse(await file.text()); }
+  catch (e) { toast('文件不是合法 JSON'); return; }
+  if (!Array.isArray(payload.targets)) { toast('文件缺少 targets 数组（需为「一键导出配置」生成的文件）'); return; }
+
+  // 预统计路径冲突，让用户选择冲突策略
+  let mode = 'skip';
+  const existing = await api('/api/targets');
+  const norm = p => ('/' + (p || '').trim().replace(/^\/+|\/+$/g, ''));
+  const paths = new Set(((existing && existing.targets) || []).map(t => norm(t.path)));
+  const conflicts = payload.targets.filter(t => paths.has(norm(t.path))).length;
+  if (conflicts > 0) {
+    mode = confirm(`文件共 ${payload.targets.length} 条服务，其中 ${conflicts} 条路径已存在。\n\n确定 = 覆盖更新已有服务\n取消 = 跳过已有，仅导入新服务`) ? 'overwrite' : 'skip';
+  }
+
+  const d = await api('/api/targets/import?mode=' + mode, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  if (!d || d.detail) { toast('导入失败: ' + JSON.stringify((d && d.detail) || ''), 6000); return; }
+  let msg = `导入完成：服务新增 ${d.created}，更新 ${d.updated}，跳过 ${d.skipped}`;
+  if (d.params_imported) msg += `，全局参数 ${d.params_imported}`;
+  if (d.modes_imported) msg += `，故障模式 ${d.modes_imported}`;
+  if (d.scenarios_imported) msg += `，故障场景 ${d.scenarios_imported}`;
+  if (d.metrics_imported) msg += `，统计指标 ${d.metrics_imported}`;
+  if (d.mq_consumers_imported) msg += `，MQ 消费方 ${d.mq_consumers_imported}`;
+  if (d.mq_producers_imported) msg += `，MQ 生产者 ${d.mq_producers_imported}`;
+  if (d.errors && d.errors.length) msg += `，失败 ${d.errors.length} 条（见控制台）`;
+  toast(msg, 6000);
+  if (d.errors && d.errors.length) console.warn('导入失败明细:', d.errors);
+  loadTargets();
+  loadParams();
+  loadScenarios();
+  loadMetrics();
+  loadMqConsumers();
+  loadMqProducers().then(refreshProducerSelect);
+}
+
+// ── 全局参数 ──
+async function loadParams() {
+  const d = await api('/api/params');
+  if (!d) return;
+  window._gParams = d.params || [];
+  const body = document.getElementById('paramsBody');
+  if (window._gParams.length === 0) {
+    body.innerHTML = '<tr><td colspan="4" class="empty">尚未配置 — 点击「＋ 新增参数」</td></tr>';
+    return;
+  }
+  body.innerHTML = window._gParams.map(p => `
+    <tr>
+      <td style="font-family:monospace;">@${escapeHtml(p.key)}</td>
+      <td title="${escapeHtml(p.value)}">${escapeHtml(p.value.length > 40 ? p.value.slice(0, 40) + '…' : p.value)}</td>
+      <td>${escapeHtml(p.remark || '-')}</td>
+      <td>
+        <button class="mini-btn" onclick="editParam('${escapeHtml(p.key)}')">编辑</button>
+        <button class="mini-btn danger" onclick="delParam('${escapeHtml(p.key)}')">删除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function editParam(key) {
+  const p = key ? (window._gParams || []).find(x => x.key === key) || {} : {};
+  document.getElementById('detailTitle').textContent = key ? `编辑参数 @${key}` : '新增全局参数';
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>Key *</td><td><input id="pKey" value="${escapeHtml(p.key || '')}" placeholder="prefix（字母/下划线开头）" style="width:70%;" ${key ? 'disabled' : ''}></td></tr>
+      <tr><td>Value *</td><td><input id="pVal" value="${escapeHtml(p.value || '')}" style="width:70%;"></td></tr>
+      <tr><td>备注</td><td><input id="pRemark" value="${escapeHtml(p.remark || '')}" style="width:70%;"></td></tr>
+    </table>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-primary" onclick="saveParam()">保存</button>
+    </div>
+    <div style="font-size:12px; color:#64748b;">模板中以 @key 引用，保存后立即对后续请求生效。</div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function saveParam() {
+  const key = document.getElementById('pKey').value.trim();
+  const value = document.getElementById('pVal').value;
+  if (!key || !value) { toast('Key / Value 必填'); return; }
+  const d = await api('/api/params', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({key, value, remark: document.getElementById('pRemark').value.trim()})});
+  if (!d || d.detail) { toast('保存失败: ' + (d ? JSON.stringify(d.detail) : '')); return; }
+  toast('已保存');
+  loadParams();
+  hideDetail();
+}
+
+async function delParam(key) {
+  if (!confirm(`确认删除参数 @${key}？`)) return;
+  const d = await api(`/api/params/${key}`, {method: 'DELETE'});
+  if (d) { toast('已删除'); loadParams(); }
+}
+
+// ── 统计指标配置 ──
+let editingMetricId = null;
+
+async function loadMetrics() {
+  const d = await api('/api/metrics');
+  if (!d) return;
+  const body = document.getElementById('metricsBody');
+  window._metricsList = d.metrics || [];
+  if (!window._metricsList.length) {
+    body.innerHTML = '<tr><td colspan="4" class="empty">尚未配置 — 点击「＋ 新增指标」</td></tr>';
+    return;
+  }
+  body.innerHTML = window._metricsList.map(m => `
+    <tr>
+      <td>${escapeHtml(m.name)}</td>
+      <td style="font-family:monospace;">${escapeHtml(m.keyword)}</td>
+      <td style="cursor:pointer;" onclick="toggleMetric(${m.id}, ${m.enabled ? 0 : 1})" title="点击切换">${m.enabled ? '✅' : '⛔'}</td>
+      <td>
+        <button class="mini-btn" onclick="editMetric(${m.id})">编辑</button>
+        <button class="mini-btn danger" onclick="delMetric(${m.id}, '${escapeHtml(m.name)}')">删除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function editMetric(id) {
+  editingMetricId = id;
+  const m = id ? (window._metricsList || []).find(x => x.id === id) || {} : {};
+  document.getElementById('detailTitle').textContent = id ? `编辑指标 — ${m.name}` : '新增统计指标';
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>名称 *</td><td><input id="mName" value="${escapeHtml(m.name || '')}" placeholder="如：下单量" style="width:70%;"></td></tr>
+      <tr><td>关键字 *</td><td><input id="mKw" value="${escapeHtml(m.keyword || '')}" placeholder="如：order（对实收消息的路径/目标模糊匹配）" style="width:70%;"></td></tr>
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="mEnabled" ${m.enabled ? 'checked' : ''}> 启用</label></td></tr>
+    </table>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-primary" onclick="saveMetric()">保存</button>
+    </div>
+    <div style="font-size:12px; color:#64748b;">保存后「概览 → 统计概览」即时按指标展示收包计数。</div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function saveMetric() {
+  const name = document.getElementById('mName').value.trim();
+  const keyword = document.getElementById('mKw').value.trim();
+  if (!name || !keyword) { toast('名称 / 关键字必填'); return; }
+  const payload = {name, keyword, enabled: document.getElementById('mEnabled').checked};
+  const d = await api(editingMetricId == null ? '/api/metrics' : `/api/metrics/${editingMetricId}`, {
+    method: editingMetricId == null ? 'POST' : 'PUT',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  if (!d || d.detail) { toast('保存失败: ' + JSON.stringify((d && d.detail) || '')); return; }
+  toast('已保存');
+  hideDetail();
+  loadMetrics();
+  loadStats();
+}
+
+async function toggleMetric(id, en) {
+  const d = await api(`/api/metrics/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: !!en})});
+  if (d && !d.detail) { loadMetrics(); loadStats(); }
+}
+
+async function delMetric(id, name) {
+  if (!confirm(`确认删除指标「${name}」？`)) return;
+  const d = await api(`/api/metrics/${id}`, {method: 'DELETE'});
+  if (d && !d.detail) { toast('已删除'); loadMetrics(); loadStats(); }
+}
+
+// ══════════════ MQ：消费方 ══════════════
+
+const MQ_ACK_MODES = {
+  auto:         {label: 'auto',          desc: '自动确认（吞吐最高，不记 ack 动作）'},
+  ack:          {label: 'ack',           desc: '手动确认（标准流）'},
+  nack_requeue: {label: 'nack+requeue',  desc: '退回队列重投 → 测 redelivered / 幂等'},
+  nack_drop:    {label: 'nack',          desc: '不重投 → 消息进死信队列'},
+  reject:       {label: 'reject',        desc: '拒绝（同不重投）'},
+  hold:         {label: 'hold',          desc: '不回任何确认 → unacked 挂起，测超时'},
+};
+const MQ_RUNTIME_BADGES = {
+  consuming:   '<span class="badge badge-success">consuming</span>',
+  reconnecting: '<span class="badge badge-timeout">reconnecting</span>',
+  stopped:     '<span class="badge badge-not_found">stopped</span>',
+};
+let editingMqConsumerId = null;
+
+async function loadMqConsumers() {
+  const d = await api('/api/mq/consumers');
+  if (!d) return;
+  window._mqConsumers = d.items || [];
+  const body = document.getElementById('mqConsumersBody');
+  if (!window._mqConsumers.length) {
+    body.innerHTML = '<tr><td colspan="10" class="empty">尚未配置 — 点击「＋ 新增消费方」</td></tr>';
+    return;
+  }
+  body.innerHTML = window._mqConsumers.map(c => {
+    const rt = c.runtime_status || 'stopped';
+    const badge = MQ_RUNTIME_BADGES[rt] || rt;
+    const err = c.last_error ? ` title="${escapeHtml(c.last_error)}"` : '';
+    const ack = MQ_ACK_MODES[c.ack_mode] ? MQ_ACK_MODES[c.ack_mode].label : c.ack_mode;
+    return `<tr${err}>
+      <td>${escapeHtml(c.name)}</td>
+      <td title="vhost=${escapeHtml(c.vhost)}">${escapeHtml(c.host)}:${c.port}</td>
+      <td style="font-family:monospace;">${escapeHtml(c.queue)}</td>
+      <td><span class="badge badge-latency">${escapeHtml(ack)}</span></td>
+      <td>${c.delay_ms ? c.delay_ms + 'ms' : '-'}</td>
+      <td>${c.reply_enabled ? '✅' : '⛔'}</td>
+      <td>${badge}</td>
+      <td>${c.consumed ?? 0}</td>
+      <td style="cursor:pointer;" onclick="toggleMqConsumer(${c.id}, ${c.enabled ? 0 : 1})" title="点击切换">${c.enabled ? '✅' : '⛔'}</td>
+      <td>
+        <button class="mini-btn" onclick="startMqConsumer(${c.id})">启动</button>
+        <button class="mini-btn" onclick="stopMqConsumer(${c.id})">停止</button>
+        <button class="mini-btn" onclick="editMqConsumer(${c.id})">编辑</button>
+        <button class="mini-btn danger" onclick="delMqConsumer(${c.id}, '${escapeHtml(c.name)}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function editMqConsumer(id) {
+  editingMqConsumerId = id;
+  let c = {name: '', host: '127.0.0.1', port: 5672, vhost: '/', username: 'guest', password: '',
+           queue: '', prefetch: 1, declare_mode: 'durable', ack_mode: 'ack', delay_ms: 0,
+           reply_enabled: 1, reply_template: '{"messageId":"{{messageId}}","status":"{{status}}"}',
+           reply_content_type: 'application/json', reply_headers: '', fault_inject: 1, enabled: 1};
+  if (id != null) {
+    const d = await api('/api/mq/consumers');
+    const found = (d.items || []).find(x => x.id === id);
+    if (found) { const {runtime_status, connected, consumed, last_msg_ts, last_error, password, ...rest} = found; c = rest; }
+  }
+  document.getElementById('detailTitle').textContent = id ? `编辑消费方 — ${c.name}` : '新增 MQ 消费方';
+  document.getElementById('detailContent').innerHTML = `
+    <h4>连接</h4>
+    <table class="kv-table">
+      <tr><td>名称 *</td><td><input id="qcName" value="${escapeHtml(c.name)}" placeholder="如：SIT 目标队列消费" style="width:60%;"></td></tr>
+      <tr><td>地址 *</td><td><input id="qcHost" value="${escapeHtml(c.host)}" style="width:38%;">
+        :<input id="qcPort" type="number" value="${c.port}" style="width:80px;"> vhost:<input id="qcVhost" value="${escapeHtml(c.vhost)}" style="width:90px;"></td></tr>
+      <tr><td>账号</td><td><input id="qcUser" value="${escapeHtml(c.username)}" style="width:30%;">
+        密码:<input id="qcPass" type="password" value="" placeholder="${id ? '（不变更留空）' : 'guest'}" style="width:30%;"></td></tr>
+      <tr><td>队列 *</td><td><input id="qcQueue" value="${escapeHtml(c.queue)}" placeholder="如 sit.target.queue" style="width:60%;"></td></tr>
+      <tr><td>prefetch</td><td><input id="qcPrefetch" type="number" value="${c.prefetch}" min="1" style="width:80px;">（QoS 预取；测并发可调大）</td></tr>
+      <tr><td>声明模式</td><td><select id="qcDeclare">
+        <option value="durable" ${c.declare_mode === 'durable' ? 'selected' : ''}>durable — 声明持久队列（幂等，参数须与上游投递方一致）</option>
+        <option value="passive" ${c.declare_mode === 'passive' ? 'selected' : ''}>passive — 仅检查存在性，不创建（防误建）</option>
+      </select></td></tr>
+    </table>
+    <h4>行为</h4>
+    <table class="kv-table">
+      <tr><td>确认模式 *</td><td><select id="qcAck">
+        ${Object.entries(MQ_ACK_MODES).map(([k, v]) =>
+          `<option value="${k}" ${c.ack_mode === k ? 'selected' : ''}>${v.label} — ${v.desc}</option>`).join('')}
+      </select></td></tr>
+      <tr><td>处理延迟</td><td><input id="qcDelay" type="number" value="${c.delay_ms}" min="0" style="width:100px;"> 毫秒（收到消息后等待再执行动作/回复）</td></tr>
+      <tr><td>故障注入</td><td><label style="cursor:pointer;"><input type="checkbox" id="qcFault" ${c.fault_inject ? 'checked' : ''}>
+        复用故障模式（fault_mode，目标=队列名；fail→回复 FAILED / timeout→延迟后 FAILED）</label></td></tr>
+    </table>
+    <h4>回复（消息带 reply_to 时回写）</h4>
+    <table class="kv-table">
+      <tr><td>启用回复</td><td><label style="cursor:pointer;"><input type="checkbox" id="qcReplyOn" ${c.reply_enabled ? 'checked' : ''}> 回写 reply_to 队列</label></td></tr>
+      <tr><td>Content-Type</td><td><input id="qcReplyCt" value="${escapeHtml(c.reply_content_type || 'application/json')}" style="width:50%;"></td></tr>
+      <tr><td>Headers</td><td><input id="qcReplyHeaders" value="${escapeHtml(c.reply_headers || '')}" placeholder='JSON 对象，如 {"from":"faux"}' style="width:70%;"></td></tr>
+    </table>
+    <div class="chips">
+      ${['{{messageId}}', '{{correlationId}}', '{{queue}}', '{{status}}', '{{error}}', '{{ts}}', '{{body.orderNo}}'].map(t =>
+        `<span class="chip" onclick="insertTpl('${t}', 'qcReplyTpl')" title="点击插入模板">${t}</span>`).join('')}
+    </div>
+    <textarea id="qcReplyTpl" rows="5">${escapeHtml(c.reply_template || '')}</textarea>
+    <table class="kv-table" style="margin-top:8px;">
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="qcEnabled" ${c.enabled ? 'checked' : ''}> 保存后自动拉起</label></td></tr>
+    </table>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-primary" onclick="saveMqConsumer()">保存</button>
+    </div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function saveMqConsumer() {
+  const payload = {
+    name: document.getElementById('qcName').value.trim(),
+    host: document.getElementById('qcHost').value.trim() || '127.0.0.1',
+    port: parseInt(document.getElementById('qcPort').value) || 5672,
+    vhost: document.getElementById('qcVhost').value || '/',
+    username: document.getElementById('qcUser').value.trim() || 'guest',
+    queue: document.getElementById('qcQueue').value.trim(),
+    prefetch: parseInt(document.getElementById('qcPrefetch').value) || 1,
+    declare_mode: document.getElementById('qcDeclare').value,
+    ack_mode: document.getElementById('qcAck').value,
+    delay_ms: parseInt(document.getElementById('qcDelay').value) || 0,
+    fault_inject: document.getElementById('qcFault').checked,
+    reply_enabled: document.getElementById('qcReplyOn').checked,
+    reply_content_type: document.getElementById('qcReplyCt').value.trim() || 'application/json',
+    reply_headers: document.getElementById('qcReplyHeaders').value.trim(),
+    reply_template: document.getElementById('qcReplyTpl').value,
+    enabled: document.getElementById('qcEnabled').checked,
+  };
+  const pass = document.getElementById('qcPass').value;
+  if (pass) payload.password = pass;
+  if (!payload.name || !payload.queue) { toast('名称 / 队列必填'); return; }
+  if (payload.reply_headers) {
+    try { if (typeof JSON.parse(payload.reply_headers) !== 'object' || Array.isArray(JSON.parse(payload.reply_headers))) throw 0; }
+    catch (e) { toast('回复 Headers 需为 JSON 对象'); return; }
+  }
+  const opts = {method: editingMqConsumerId == null ? 'POST' : 'PUT',
+                headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
+  const d = await api(editingMqConsumerId == null ? '/api/mq/consumers' : `/api/mq/consumers/${editingMqConsumerId}`, opts);
+  if (!d || d.detail) { toast('保存失败: ' + JSON.stringify((d && d.detail) || '')); return; }
+  toast('已保存' + (payload.enabled ? '，消费方已拉起' : ''));
+  hideDetail();
+  loadMqConsumers();
+}
+
+async function toggleMqConsumer(id, en) {
+  const d = await api(`/api/mq/consumers/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: !!en})});
+  if (d && !d.detail) { toast(en ? '已启用并拉起' : '已停用'); loadMqConsumers(); }
+}
+
+async function startMqConsumer(id) {
+  const d = await api(`/api/mq/consumers/${id}/start`, {method: 'POST'});
+  if (d && !d.detail) { toast(d.message === 'started' ? '已启动' : (d.message || '')); loadMqConsumers(); }
+}
+
+async function stopMqConsumer(id) {
+  const d = await api(`/api/mq/consumers/${id}/stop`, {method: 'POST'});
+  if (d && !d.detail) { toast('已停止'); loadMqConsumers(); }
+}
+
+async function delMqConsumer(id, name) {
+  if (!confirm(`确认删除消费方「${name}」？（将先停止）`)) return;
+  const d = await api(`/api/mq/consumers/${id}`, {method: 'DELETE'});
+  if (d && !d.detail) { toast('已删除'); loadMqConsumers(); }
+}
+
+// ══════════════ MQ：生产者 ══════════════
+
+let editingMqProducerId = null;
+
+async function loadMqProducers() {
+  const d = await api('/api/mq/producers');
+  if (!d) return;
+  window._mqProducers = d.items || [];
+  const body = document.getElementById('mqProducersBody');
+  if (!window._mqProducers.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">尚未配置 — 点击「＋ 新增生产者」</td></tr>';
+    return;
+  }
+  body.innerHTML = window._mqProducers.map(p => `
+    <tr>
+      <td>${escapeHtml(p.name)}</td>
+      <td title="vhost=${escapeHtml(p.vhost)}">${escapeHtml(p.host)}:${p.port}</td>
+      <td>${escapeHtml(p.exchange || '（默认交换机）')}</td>
+      <td style="font-family:monospace;">${escapeHtml(p.routing_key || '-')}</td>
+      <td>${escapeHtml(p.content_type)}</td>
+      <td style="cursor:pointer;" onclick="toggleMqProducer(${p.id}, ${p.enabled ? 0 : 1})" title="点击切换">${p.enabled ? '✅' : '⛔'}</td>
+      <td>
+        <button class="mini-btn" onclick="editMqProducer(${p.id})">编辑</button>
+        <button class="mini-btn danger" onclick="delMqProducer(${p.id}, '${escapeHtml(p.name)}')">删除</button>
+      </td>
+    </tr>`).join('');
+  refreshProducerSelect();
+}
+
+async function editMqProducer(id) {
+  editingMqProducerId = id;
+  let p = {name: '', host: '127.0.0.1', port: 5672, vhost: '/', username: 'guest', password: '',
+           exchange: '', routing_key: '', content_type: 'application/json', delivery_mode: 2,
+           priority: 0, sample_body: '', enabled: 1};
+  if (id != null) {
+    const d = await api('/api/mq/producers');
+    const found = (d.items || []).find(x => x.id === id);
+    if (found) { const {password, ...rest} = found; p = rest; }
+  }
+  document.getElementById('detailTitle').textContent = id ? `编辑生产者 — ${p.name}` : '新增 MQ 生产者';
+  document.getElementById('detailContent').innerHTML = `
+    <h4>连接</h4>
+    <table class="kv-table">
+      <tr><td>名称 *</td><td><input id="pdName" value="${escapeHtml(p.name)}" placeholder="如：SIT 上游源系统" style="width:60%;"></td></tr>
+      <tr><td>地址 *</td><td><input id="pdHost" value="${escapeHtml(p.host)}" style="width:38%;">
+        :<input id="pdPort" type="number" value="${p.port}" style="width:80px;"> vhost:<input id="pdVhost" value="${escapeHtml(p.vhost)}" style="width:90px;"></td></tr>
+      <tr><td>账号</td><td><input id="pdUser" value="${escapeHtml(p.username)}" style="width:30%;">
+        密码:<input id="pdPass" type="password" value="" placeholder="${id ? '（不变更留空）' : 'guest'}" style="width:30%;"></td></tr>
+    </table>
+    <h4>默认投递参数（发送时可覆盖）</h4>
+    <table class="kv-table">
+      <tr><td>Exchange</td><td><input id="pdEx" value="${escapeHtml(p.exchange)}" placeholder="留空 = 默认交换机（直连队列）" style="width:50%;"></td></tr>
+      <tr><td>RoutingKey *</td><td><input id="pdRk" value="${escapeHtml(p.routing_key)}" placeholder="默认交换机下=队列名" style="width:50%;"></td></tr>
+      <tr><td>Content-Type</td><td><input id="pdCt" list="mqCtList" value="${escapeHtml(p.content_type)}" style="width:50%;"></td></tr>
+      <tr><td>持久化</td><td><label style="cursor:pointer;"><input type="checkbox" id="pdPersist" ${p.delivery_mode == 2 ? 'checked' : ''}> delivery_mode=2（持久消息）</label></td></tr>
+      <tr><td>优先级</td><td><input id="pdPriority" type="number" min="0" max="9" value="${p.priority}" style="width:70px;">（0-9）</td></tr>
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="pdEnabled" ${p.enabled ? 'checked' : ''}> 启用</label></td></tr>
+    </table>
+    <h4>示例消息体（发送卡片默认值）</h4>
+    <textarea id="pdSample" rows="7" placeholder='{"marker":"TC-MQ-001","messageId":"M-001","bizData":{"orderNo":"A123"}}'>${escapeHtml(p.sample_body || '')}</textarea>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-primary" onclick="saveMqProducer()">保存</button>
+    </div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function saveMqProducer() {
+  const payload = {
+    name: document.getElementById('pdName').value.trim(),
+    host: document.getElementById('pdHost').value.trim() || '127.0.0.1',
+    port: parseInt(document.getElementById('pdPort').value) || 5672,
+    vhost: document.getElementById('pdVhost').value || '/',
+    username: document.getElementById('pdUser').value.trim() || 'guest',
+    exchange: document.getElementById('pdEx').value.trim(),
+    routing_key: document.getElementById('pdRk').value.trim(),
+    content_type: document.getElementById('pdCt').value.trim() || 'application/json',
+    delivery_mode: document.getElementById('pdPersist').checked ? 2 : 1,
+    priority: parseInt(document.getElementById('pdPriority').value) || 0,
+    sample_body: document.getElementById('pdSample').value,
+    enabled: document.getElementById('pdEnabled').checked,
+  };
+  const pass = document.getElementById('pdPass').value;
+  if (pass) payload.password = pass;
+  if (!payload.name) { toast('名称必填'); return; }
+  const opts = {method: editingMqProducerId == null ? 'POST' : 'PUT',
+                headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)};
+  const d = await api(editingMqProducerId == null ? '/api/mq/producers' : `/api/mq/producers/${editingMqProducerId}`, opts);
+  if (!d || d.detail) { toast('保存失败: ' + JSON.stringify((d && d.detail) || '')); return; }
+  toast('已保存');
+  hideDetail();
+  loadMqProducers();
+}
+
+async function toggleMqProducer(id, en) {
+  const d = await api(`/api/mq/producers/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({enabled: !!en})});
+  if (d && !d.detail) loadMqProducers();
+}
+
+async function delMqProducer(id, name) {
+  if (!confirm(`确认删除生产者「${name}」？`)) return;
+  const d = await api(`/api/mq/producers/${id}`, {method: 'DELETE'});
+  if (d && !d.detail) { toast('已删除'); loadMqProducers(); }
+}
+
+// ══════════════ MQ：发送卡片 ══════════════
+
+function refreshProducerSelect(keepId) {
+  const sel = document.getElementById('sendProducer');
+  if (!sel) return;
+  const cur = keepId ?? sel.value;
+  const enabled = (window._mqProducers || []).filter(p => p.enabled);
+  if (!enabled.length) {
+    sel.innerHTML = '<option value="">（先在「MQ 生产者」页签配置）</option>';
+    return;
+  }
+  sel.innerHTML = enabled.map(p =>
+    `<option value="${p.id}" ${String(p.id) === String(cur) ? 'selected' : ''}>${escapeHtml(p.name)} → ${escapeHtml(p.host)}:${p.port} ${escapeHtml(p.exchange || '(default)')} / ${escapeHtml(p.routing_key)}</option>`).join('');
+  onSendProducerChange();
+}
+
+function loadMqSendCard() {
+  loadMqProducers().then(() => { refreshProducerSelect(); loadMqSends(); });
+}
+
+function onSendProducerChange() {
+  const id = document.getElementById('sendProducer').value;
+  const p = (window._mqProducers || []).find(x => String(x.id) === String(id));
+  if (!p) return;
+  document.getElementById('sendRk').value = p.routing_key || '';
+  document.getElementById('sendCt').value = p.content_type || 'application/json';
+  document.getElementById('sendPersist').checked = p.delivery_mode == 2;
+  document.getElementById('sendPriority').value = p.priority || 0;
+  fillMqSample();
+}
+
+function fillMqSample() {
+  const id = document.getElementById('sendProducer').value;
+  const p = (window._mqProducers || []).find(x => String(x.id) === String(id));
+  const def = '{\n  "marker": "TC-MQ-001",\n  "messageId": "M-001",\n  "sourceSystem": "SIT_SYS",\n  "bizData": {\n    "orderNo": "A123",\n    "amount": 99.9\n  }\n}';
+  document.getElementById('sendBody').value = (p && p.sample_body) || def;
+}
+
+function formatMqBody() {
+  const ta = document.getElementById('sendBody');
+  try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); }
+  catch (e) { toast('不是合法 JSON，保持原样'); }
+}
+
+async function previewMqBody() {
+  const el = document.getElementById('sendResult');
+  const d = await api('/api/targets/render', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({template: document.getElementById('sendBody').value})});
+  if (!d || d.detail) { toast('渲染失败'); return; }
+  el.style.display = 'block';
+  el.textContent = '【渲染预览 · 实际将发送的消息体】\n' + (prettyJson(d.rendered) || '（空）');
+}
+
+async function sendMqMessage() {
+  const id = document.getElementById('sendProducer').value;
+  const el = document.getElementById('sendResult');
+  if (!id) { toast('请先选择生产者（并在「MQ 生产者」页签配置）'); return; }
+  const body = document.getElementById('sendBody').value;
+  if (!body.trim()) { toast('消息体不能为空'); return; }
+  let headers = {};
+  const htxt = document.getElementById('sendHeaders').value.trim();
+  if (htxt) {
+    try { headers = JSON.parse(htxt); } catch (e) { toast('Headers 需为 JSON 对象'); return; }
+  }
+  const payload = {
+    body,
+    routing_key: document.getElementById('sendRk').value.trim() || null,
+    content_type: document.getElementById('sendCt').value.trim() || null,
+    delivery_mode: document.getElementById('sendPersist').checked ? 2 : 1,
+    priority: parseInt(document.getElementById('sendPriority').value) || 0,
+    correlation_id: document.getElementById('sendCid').value.trim() || null,
+    reply_to: document.getElementById('sendReplyTo').value.trim() || null,
+  };
+  const ttl = document.getElementById('sendTtl').value.trim();
+  if (ttl) payload.expiration = ttl;
+  if (Object.keys(headers).length) payload.headers = headers;
+
+  el.style.display = 'block';
+  el.textContent = '发送中...';
+  const d = await api(`/api/mq/producers/${id}/send`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)});
+  if (!d) { el.textContent = '✗ 请求失败'; return; }
+  if (d.detail) { el.textContent = '✗ ' + JSON.stringify(d.detail); return; }
+  const icon = d.result === 'sent' ? '✓' : '✗';
+  el.textContent = `${icon} ${d.result} — exchange=${d.exchange || '(default)'} rk=${d.routing_key} 耗时 ${d.elapsed_ms}ms` +
+    (d.detail ? `\n${d.detail}` : '') +
+    `\ncorrelation_id=${d.correlation_id}\nmessage_id=${d.message_id}`;
+  if (d.body_rendered && d.body_rendered !== body) {
+    el.textContent += '\n—— 实际发送消息体（@参数已渲染）——\n' + d.body_rendered;
+  }
+  loadMqSends();
+}
+
+async function loadMqSends() {
+  const d = await api('/api/mq/sends?limit=10');
+  if (!d) return;
+  const body = document.getElementById('sendsBody');
+  const items = d.items || [];
+  if (!items.length) { body.innerHTML = '<tr><td colspan="5" class="empty">—</td></tr>'; return; }
+  const badge = r => r === 'sent' ? 'badge-success' : 'badge-fail';
+  body.innerHTML = items.map(s => {
+    sendRows[s.id] = s;
+    const errBrief = s.result !== 'sent' && s.detail
+      ? `<div style="color:#ef4444;font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(s.detail)}">${escapeHtml(s.detail)}</div>` : '';
+    return `
+    <tr onclick="showSendDetail(${s.id})" style="cursor:pointer;" title="点击查看发送详情">
+      <td>${fmtTs(s.ts).full}</td>
+      <td>${escapeHtml(s.producer_name || '-')}</td>
+      <td style="font-family:monospace;">${escapeHtml(s.routing_key || '-')}</td>
+      <td><span class="badge ${badge(s.result)}">${s.result}</span>${errBrief}</td>
+      <td>${s.elapsed_ms}ms</td>
+    </tr>`;
+  }).join('');
+}
+
+function showSendDetail(id) {
+  const s = sendRows[id];
+  if (!s) return;
+  document.getElementById('detailTitle').textContent = `MQ 发送 #${s.id} 详情`;
+  const okBadge = s.result === 'sent'
+    ? '<span class="badge badge-success">sent</span>'
+    : `<span class="badge badge-fail">${escapeHtml(s.result)}</span>`;
+  document.getElementById('detailContent').innerHTML = `
+    <h4>基本信息</h4>
+    <table class="kv-table">
+      <tr><td>时间（本地）</td><td>${escapeHtml(fmtTs(s.ts).full)} <span style="color:#64748b">（UTC: ${escapeHtml(s.ts)}）</span></td></tr>
+      <tr><td>生产者</td><td>${escapeHtml(s.producer_name || '-')}</td></tr>
+      <tr><td>Exchange / RK</td><td style="font-family:monospace;">${escapeHtml(s.exchange || '(default)')} / ${escapeHtml(s.routing_key || '-')}</td></tr>
+      <tr><td>结果</td><td>${okBadge} · 耗时 ${s.elapsed_ms}ms</td></tr>
+    </table>
+    ${s.detail ? `<h4>错误详情</h4><pre style="color:#ef4444;">${escapeHtml(s.detail)}</pre>` : ''}
+    <h4>消息体（${s.body_len} 字节）</h4>
+    <pre>${escapeHtml(prettyJson(s.body || '（空）'))}</pre>
+  `;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+// ══════════════ MQ：实收消息卡片 ══════════════
+
+const MQ_PAGE = 30;
+let mqOffset = 0;
+const mqRows = {};
+const sendRows = {};
+
+function mqQueryStr() {
+  const p = new URLSearchParams();
+  const q = document.getElementById('mqQueueF').value.trim();
+  const mk = document.getElementById('mqMarkerF').value.trim();
+  const rs = document.getElementById('mqReplyF').value;
+  if (q) p.set('queue', q);
+  if (mk) p.set('marker', mk);
+  if (rs) p.set('reply_status', rs);
+  return p.toString();
+}
+
+async function loadMqMessages(offset) {
+  mqOffset = offset || 0;
+  const body = document.getElementById('mqMsgsBody');
+  body.innerHTML = '<tr><td colspan="8" class="empty">查询中...</td></tr>';
+  const qs = mqQueryStr();
+  const d = await api(`/api/mq/messages?${qs}${qs ? '&' : ''}limit=${MQ_PAGE}&offset=${mqOffset}`);
+  if (!d) { body.innerHTML = '<tr><td colspan="8" class="empty">请求失败</td></tr>'; return; }
+  const items = d.items || [];
+  if (!items.length) {
+    body.innerHTML = '<tr><td colspan="8" class="empty">无记录 — 需先在「MQ 消费方」页签配置并启动</td></tr>';
+  } else {
+    body.innerHTML = items.map(r => {
+      mqRows[r.id] = r;
+      const cls = r.reply_status === 'CONSUMED' ? 'badge-success' : 'badge-fail';
+      return `<tr onclick="showMqDetail(${r.id})" style="cursor:pointer;" title="点击查看消息详情">
+        <td>${r.id}</td>
+        <td>${fmtTs(r.ts).full}</td>
+        <td style="font-family:monospace;">${escapeHtml(r.queue)}</td>
+        <td title="${escapeHtml(r.message_id || '')}">${escapeHtml((r.message_id || '-').slice(0, 14))}</td>
+        <td>${escapeHtml(r.marker || '-')}</td>
+        <td><span class="badge ${cls}">${escapeHtml(r.reply_status || '-')}</span></td>
+        <td>${escapeHtml(r.ack_action || r.ack_status || '-')}</td>
+        <td>${r.latency_ms != null ? r.latency_ms + 'ms' : '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+  const page = Math.floor(mqOffset / MQ_PAGE) + 1;
+  const pages = Math.max(1, Math.ceil(d.total / MQ_PAGE));
+  document.getElementById('mqPageInfo').textContent = `共 ${d.total} 条 · 第 ${page}/${pages} 页`;
+  document.getElementById('mqPrev').disabled = mqOffset <= 0;
+  document.getElementById('mqNext').disabled = mqOffset + MQ_PAGE >= d.total;
+}
+
+function mqPage(dir) {
+  const next = mqOffset + dir * MQ_PAGE;
+  if (next < 0) return;
+  loadMqMessages(next);
+}
+
+function mqResetF() {
+  document.getElementById('mqQueueF').value = '';
+  document.getElementById('mqMarkerF').value = '';
+  document.getElementById('mqReplyF').value = '';
+  loadMqMessages(0);
+}
+
+function showMqDetail(id) {
+  const r = mqRows[id];
+  if (!r) return;
+  document.getElementById('detailTitle').textContent = `MQ 消息 #${r.id} 详情`;
+  let propsHtml = '<div class="empty">（未记录 — 旧版消费者）</div>';
+  if (r.properties_json) {
+    try {
+      const obj = JSON.parse(r.properties_json);
+      propsHtml = '<table class="kv-table">' +
+        Object.entries(obj).map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</td></tr>`).join('') +
+        '</table>';
+    } catch (e) { propsHtml = `<pre>${escapeHtml(r.properties_json)}</pre>`; }
+  }
+  document.getElementById('detailContent').innerHTML = `
+    <h4>基本信息</h4>
+    <table class="kv-table">
+      <tr><td>时间（本地）</td><td>${escapeHtml(fmtTs(r.ts).full)} <span style="color:#64748b">（UTC: ${escapeHtml(r.ts)}）</span></td></tr>
+      <tr><td>队列</td><td style="font-family:monospace;">${escapeHtml(r.queue)}</td></tr>
+      <tr><td>Exchange / RK</td><td>${escapeHtml(r.exchange || '-')} / ${escapeHtml(r.routing_key || '-')}</td></tr>
+      <tr><td>Redelivered</td><td>${r.redelivered ? '⚠️ 是（重投消息）' : '否'} ${r.delivery_tag != null ? `· delivery_tag=${r.delivery_tag}` : ''}</td></tr>
+      <tr><td>MessageId / CorrId</td><td>${escapeHtml(r.message_id || '-')} / ${escapeHtml(r.correlation_id || '-')}</td></tr>
+      <tr><td>Marker</td><td>${escapeHtml(r.marker || '-')}</td></tr>
+      <tr><td>Body 长度</td><td>${r.body_len} 字节</td></tr>
+    </table>
+    <h4>消息 Headers（含 x-death 死信链）</h4>
+    ${headersToTable(r.headers)}
+    <h4>消息 Properties</h4>
+    ${propsHtml}
+    <h4>消息 Body</h4>
+    <pre>${escapeHtml(prettyJson(r.body || '（空）'))}</pre>
+    <h4>Faux 处理动作</h4>
+    <table class="kv-table">
+      <tr><td>回复状态</td><td>${escapeHtml(r.reply_status || '-')}（${escapeHtml(r.response_type || '-')}）</td></tr>
+      <tr><td>确认动作</td><td>${escapeHtml(r.ack_action || r.ack_status || '-')}</td></tr>
+      <tr><td>处理耗时</td><td>${r.latency_ms != null ? r.latency_ms + ' ms' : '-'}</td></tr>
+      <tr><td>回复到</td><td style="font-family:monospace;">${escapeHtml(r.reply_to || '-')}</td></tr>
+    </table>
+    <h4>实际回复快照</h4>
+    <pre>${escapeHtml(prettyJson(r.reply_body || '（未回复）'))}</pre>
+    ${r.reply_props ? `<pre>${escapeHtml(prettyJson(r.reply_props))}</pre>` : ''}
+  `;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+// ══════════════════════════ 认证（auth）══════════════════════════
+
+const AUTH_MODE_TIP = {
+  none:   '未开启：所有请求直接放行（历史行为）',
+  jwt:    'JWT：Authorization: Bearer <JWT>，校验签名 + exp + jti 状态（可即时失效）',
+  bearer: 'Bearer 不透明令牌：Authorization: Bearer <token>，查令牌表',
+  basic:  'Basic：Authorization: Basic base64(user:pass)',
+  apikey: 'API Key：自定义请求头比对',
+};
+
+function onAuthModeChange() {
+  const mode = document.getElementById('authMode').value;
+  document.getElementById('authStateTip').textContent = AUTH_MODE_TIP[mode] || '';
+  if (mode !== 'none') document.getElementById('authEnabled').checked = true;
+}
+
+async function loadAuth() {
+  loadAuthConfig();
+  loadAuthRules();
+  loadAuthTokens();
+  loadAuthRequests();
+}
+
+async function loadAuthConfig() {
+  const c = await api('/api/auth/config');
+  if (!c) return;
+  window._authCfg = c;
+  document.getElementById('authEnabled').checked = !!c.enabled;
+  document.getElementById('authMode').value = c.mode || 'none';
+  document.getElementById('authSecret').value = c.secret || '';
+  document.getElementById('authIssuer').value = c.issuer || '';
+  document.getElementById('authAudience').value = c.audience || '';
+  document.getElementById('authAccessTtl').value = c.access_ttl ?? 1800;
+  document.getElementById('authRefreshTtl').value = c.refresh_ttl ?? 604800;
+  document.getElementById('authClientId').value = c.client_id || '';
+  document.getElementById('authClientSecret').value = c.client_secret || '';
+  document.getElementById('authEndpointAuth').value = c.token_endpoint_auth || 'basic';
+  document.getElementById('authApikeyHeader').value = c.apikey_header || 'X-API-Key';
+  document.getElementById('authApikeyValue').value = c.apikey_value || '';
+  document.getElementById('authBasicUser').value = c.basic_user || '';
+  document.getElementById('authBasicPass').value = c.basic_pass || '';
+  document.getElementById('authProtectScope').value = c.protect_scope || 'business';
+  document.getElementById('authRespTpl').value = c.response_template || '';
+  document.getElementById('authReuseRevoke').checked = !!c.reuse_revoke_family;
+  document.getElementById('authStateTip').textContent = AUTH_MODE_TIP[c.mode] || '';
+}
+
+async function saveAuthConfig() {
+  const payload = {
+    enabled: document.getElementById('authEnabled').checked,
+    mode: document.getElementById('authMode').value,
+    secret: document.getElementById('authSecret').value,
+    issuer: document.getElementById('authIssuer').value,
+    audience: document.getElementById('authAudience').value,
+    access_ttl: Number(document.getElementById('authAccessTtl').value) || 1800,
+    refresh_ttl: Number(document.getElementById('authRefreshTtl').value) || 604800,
+    client_id: document.getElementById('authClientId').value,
+    client_secret: document.getElementById('authClientSecret').value,
+    token_endpoint_auth: document.getElementById('authEndpointAuth').value,
+    apikey_header: document.getElementById('authApikeyHeader').value,
+    apikey_value: document.getElementById('authApikeyValue').value,
+    basic_user: document.getElementById('authBasicUser').value,
+    basic_pass: document.getElementById('authBasicPass').value,
+    protect_scope: document.getElementById('authProtectScope').value,
+    response_template: document.getElementById('authRespTpl').value,
+    reuse_revoke_family: document.getElementById('authReuseRevoke').checked,
+  };
+  const r = await api('/api/auth/config', {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  if (!r) return;
+  if (r.error) { toast('保存失败：' + (r.detail || r.error)); return; }
+  toast(r.active ? '已保存，认证已开启（' + r.mode + '）' : '已保存，认证未开启');
+  loadAuthConfig();
+}
+
+// ── 认证规则（按路径多重认证）──
+const AUTH_MODES = [
+  ['none', '免认证'], ['jwt', 'JWT(HS256)'], ['bearer', 'Bearer 令牌'],
+  ['basic', 'Basic'], ['apikey', 'API Key'],
+];
+const AUTH_MODE_LABEL = Object.fromEntries(AUTH_MODES);
+let editingAuthRuleId = null;
+let editingAuthModes = [];
+
+async function loadAuthRules() {
+  const d = await api('/api/auth/rules');
+  if (!d) return;
+  window._authRules = d.items || [];
+  const body = document.getElementById('authRulesBody');
+  const n = window._authRules.length, on = window._authRules.filter(r => r.enabled).length;
+  const tip = document.getElementById('authRuleTip');
+  if (tip) {
+    tip.innerHTML = n
+      ? `　当前共 <b>${n}</b> 条规则（启用 ${on} 条）：命中规则的路径用规则，其余用上面的全局方式。`
+      : '　当前无规则：所有路径都用上面的全局方式。';
+  }
+  if (!n) {
+    body.innerHTML = '<tr><td colspan="7" class="empty">暂无规则 — 全部路径沿用「认证配置」的全局方式</td></tr>';
+    return;
+  }
+  body.innerHTML = window._authRules.map(r => {
+    const modes = (r.modes || []).map(m => AUTH_MODE_LABEL[m] || m).join(' + ') || '-';
+    const ov = [];
+    if (r.secret) ov.push('密钥');
+    if (r.client_id || r.client_secret) ov.push('客户端凭据');
+    if (r.apikey_header || r.apikey_value) ov.push('API Key');
+    if (r.basic_user || r.basic_pass) ov.push('Basic 账号');
+    if (r.access_ttl || r.refresh_ttl) ov.push('TTL');
+    return `
+    <tr>
+      <td>${r.enabled ? '✅' : '⛔'}</td>
+      <td><code>${escapeHtml(r.path_pattern)}</code></td>
+      <td>${escapeHtml(modes)}</td>
+      <td>${r.priority || 0}</td>
+      <td>${ov.length ? escapeHtml(ov.join('/')) : '-'}</td>
+      <td>${escapeHtml(r.remark || '-')}</td>
+      <td>
+        <button class="mini-btn" onclick="editAuthRule(${r.id})">编辑</button>
+        <button class="mini-btn" onclick="toggleAuthRule(${r.id}, ${r.enabled ? 0 : 1})">${r.enabled ? '停用' : '启用'}</button>
+        <button class="mini-btn danger" onclick="delAuthRule(${r.id})">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAuthModeChips() {
+  const box = document.getElementById('arModes');
+  if (!box) return;
+  box.innerHTML = AUTH_MODES.map(([m, label]) =>
+    `<span class="chip ${editingAuthModes.includes(m) ? 'on' : ''}" onclick="toggleAuthMode('${m}')">${label}</span>`
+  ).join('');
+}
+
+function toggleAuthMode(m) {
+  const i = editingAuthModes.indexOf(m);
+  i >= 0 ? editingAuthModes.splice(i, 1) : editingAuthModes.push(m);
+  // 选 none 时清空其它方式（免认证与其它方式并存无意义）
+  if (m === 'none' && editingAuthModes.includes('none') && editingAuthModes.length > 1) {
+    editingAuthModes = ['none'];
+  } else if (m !== 'none') {
+    editingAuthModes = editingAuthModes.filter(x => x !== 'none');
+  }
+  renderAuthModeChips();
+}
+
+async function editAuthRule(id) {
+  editingAuthRuleId = id;
+  let r = {path_pattern: '', modes: ['jwt'], enabled: 1, priority: 0, secret: '',
+           issuer: '', audience: '', access_ttl: 0, refresh_ttl: 0, client_id: '',
+           client_secret: '', apikey_header: '', apikey_value: '', basic_user: '',
+           basic_pass: '', remark: ''};
+  if (id != null) {
+    const d = await api('/api/auth/rules');
+    r = (d.items || []).find(x => x.id === id) || r;
+  }
+  editingAuthModes = (r.modes || []).slice();
+  document.getElementById('detailTitle').textContent =
+    id ? `编辑认证规则 #${id} — ${r.path_pattern}` : '新增认证规则';
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>路径模式 *</td><td><input id="arPath" value="${escapeHtml(r.path_pattern)}"
+        placeholder="/api/echo 或 /api/pay*（* 结尾=前缀通配）" style="width:70%;"></td></tr>
+      <tr><td>认证方式 *</td><td><div class="chips" id="arModes"></div>
+        <div style="font-size:12px;color:#64748b;">可多选：请求满足<b>任一</b>即放行；选「免认证」则该路径不校验</div></td></tr>
+      <tr><td>优先级</td><td><input id="arPriority" type="number" value="${r.priority || 0}" style="width:90px;">
+        大者优先；同级按 pattern 长度（更具体优先）</td></tr>
+      <tr><td>启用</td><td><label style="cursor:pointer;"><input type="checkbox" id="arEnabled" ${r.enabled ? 'checked' : ''}> 启用</label></td></tr>
+      <tr><td>备注</td><td><input id="arRemark" value="${escapeHtml(r.remark || '')}" style="width:70%;" placeholder="如：模拟系统 A（JWT）"></td></tr>
+    </table>
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer; font-size:13px; color:#0ea5e9;">
+        覆盖全局参数（留空 = 沿用全局配置；仅在该路径需要不同凭据时才展开）</summary>
+      <table class="kv-table" style="margin-top:8px;">
+      <tr><td>JWT 密钥 / iss / aud</td><td><input id="arSecret" value="${escapeHtml(r.secret || '')}" style="width:30%;" placeholder="secret">
+        <input id="arIssuer" value="${escapeHtml(r.issuer || '')}" style="width:22%;" placeholder="issuer">
+        <input id="arAud" value="${escapeHtml(r.audience || '')}" style="width:22%;" placeholder="audience"></td></tr>
+      <tr><td>有效期（秒）</td><td>access <input id="arATtl" type="number" min="0" value="${r.access_ttl || 0}" style="width:90px;">
+        refresh <input id="arRTtl" type="number" min="0" value="${r.refresh_ttl || 0}" style="width:100px;">（0=不覆盖）</td></tr>
+      <tr><td>客户端凭据</td><td><input id="arClientId" value="${escapeHtml(r.client_id || '')}" style="width:30%;" placeholder="client_id">
+        <input id="arClientSecret" value="${escapeHtml(r.client_secret || '')}" style="width:30%;" placeholder="client_secret">
+        <div style="font-size:12px;color:#64748b;margin-top:4px;">
+          仅用于该路径 basic/apikey 的回退校验；<b>换票端点</b>的凭据校验始终取全局配置</div></td></tr>
+      <tr><td>API Key</td><td><input id="arAkHeader" value="${escapeHtml(r.apikey_header || '')}" style="width:25%;" placeholder="头名">
+        <input id="arAkValue" value="${escapeHtml(r.apikey_value || '')}" style="width:35%;" placeholder="期望值"></td></tr>
+      <tr><td>Basic 账号</td><td><input id="arBasicUser" value="${escapeHtml(r.basic_user || '')}" style="width:30%;" placeholder="用户名">
+        <input id="arBasicPass" value="${escapeHtml(r.basic_pass || '')}" style="width:30%;" placeholder="密码"></td></tr>
+      </table>
+    </details>
+    <div class="actions" style="margin-top:12px;">
+      <button class="btn-secondary" onclick="hideDetail()">取消</button>
+      <button class="btn-primary" onclick="saveAuthRule()">保存</button>
+    </div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
+  renderAuthModeChips();
+}
+
+async function saveAuthRule() {
+  const val = id => (document.getElementById(id) || {}).value ?? '';
+  const payload = {
+    path_pattern: val('arPath').trim(),
+    modes: editingAuthModes.join(','),
+    enabled: document.getElementById('arEnabled').checked,
+    priority: parseInt(val('arPriority')) || 0,
+    secret: val('arSecret'), issuer: val('arIssuer'), audience: val('arAud'),
+    access_ttl: parseInt(val('arATtl')) || 0, refresh_ttl: parseInt(val('arRTtl')) || 0,
+    client_id: val('arClientId'), client_secret: val('arClientSecret'),
+    apikey_header: val('arAkHeader'), apikey_value: val('arAkValue'),
+    basic_user: val('arBasicUser'), basic_pass: val('arBasicPass'),
+    remark: val('arRemark'),
+  };
+  if (!payload.path_pattern) { toast('请填写路径模式'); return; }
+  if (!editingAuthModes.length) { toast('请至少选择一种认证方式'); return; }
+  const isNew = editingAuthRuleId == null;
+  const r = await api(isNew ? '/api/auth/rules' : `/api/auth/rules/${editingAuthRuleId}`, {
+    method: isNew ? 'POST' : 'PUT',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+  if (!r) return;
+  if (r.error) { toast('保存失败：' + (r.detail || r.error)); return; }
+  toast('规则已保存：' + payload.path_pattern + ' → ' + payload.modes);
+  hideDetail();
+  loadAuthRules();
+}
+
+async function toggleAuthRule(id, enabled) {
+  const r = await api(`/api/auth/rules/${id}`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({enabled: !!enabled}),
+  });
+  if (!r) return;
+  loadAuthRules();
+}
+
+async function delAuthRule(id) {
+  if (!confirm(`确认删除认证规则 #${id}？`)) return;
+  const r = await api(`/api/auth/rules/${id}`, {method: 'DELETE'});
+  if (!r) return;
+  toast('规则已删除');
+  loadAuthRules();
+}
+
+// ── 令牌 ──
+function statusBadge(s) {
+  const cls = s === 'ACTIVE' ? 'badge-success'
+            : (s === 'REVOKED' ? 'badge-fail'
+            : (s === 'ROTATED' ? 'badge-custom' : 'badge-timeout'));
+  return `<span class="badge ${cls}">${escapeHtml(s)}</span>`;
+}
+
+function tokCell(full, masked) {
+  if (!full) return '<span style="color:#64748b;">-</span>';
+  return `<span class="chip" style="cursor:pointer;" title="点击切换明文/打码"
+    onclick="toggleTok(this)" data-full="${escapeHtml(full)}" data-shown="0">${escapeHtml(masked || full)}</span>`;
+}
+
+function toggleTok(el) {
+  const shown = el.getAttribute('data-shown') === '1';
+  el.textContent = shown ? (el.dataset.full.length > 12 ? el.dataset.full.slice(0, 12) + '…' : el.dataset.full)
+                         : el.dataset.full;
+  el.setAttribute('data-shown', shown ? '0' : '1');
+}
+
+async function loadAuthTokens() {
+  const client = document.getElementById('tokClient').value.trim();
+  const status = document.getElementById('tokStatus').value;
+  const qs = new URLSearchParams();
+  if (client) qs.set('client_id', client);
+  if (status) qs.set('status', status);
+  qs.set('limit', '200');
+  const d = await api('/api/auth/tokens?' + qs.toString());
+  if (!d) return;
+  window._authTokens = d.items || [];
+  const body = document.getElementById('authTokensBody');
+  if (!window._authTokens.length) {
+    body.innerHTML = '<tr><td colspan="10" class="empty">暂无令牌 — 点「＋ 签发一对」或让对端调 /api/auth/token</td></tr>';
+    return;
+  }
+  body.innerHTML = window._authTokens.map(t => `
+    <tr>
+      <td>${t.id}</td>
+      <td>${escapeHtml(t.token_kind)}</td>
+      <td>${escapeHtml(t.client_id || '-')}</td>
+      <td>${statusBadge(t.computed_status)}</td>
+      <td>${tokCell(t.access_token, t.access_masked)}</td>
+      <td>${tokCell(t.refresh_token, t.refresh_masked)}</td>
+      <td>${t.computed_status === 'ACTIVE' ? t.access_left_s + 's' : '-'}</td>
+      <td>${t.refresh_token ? (t.refresh_expired ? '已过期' : t.refresh_left_s + 's') : '-'}</td>
+      <td>${t.use_count || 0}${t.last_used_at ? '<br><span style="font-size:11px;color:#64748b;">' + fmtTs(t.last_used_at).time + '</span>' : ''}</td>
+      <td>
+        <button class="mini-btn" onclick="copyTok(${t.id}, 'access')">复制 access</button>
+        <button class="mini-btn danger" onclick="revokeTok(${t.id})">立即失效</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function copyTok(id, which) {
+  const t = (window._authTokens || []).find(x => x.id === id);
+  if (!t) return;
+  const text = which === 'access' ? t.access_token : t.refresh_token;
+  try { await navigator.clipboard.writeText(text); toast('已复制到剪贴板'); }
+  catch (e) { toast(text || '（空）', 6000); }
+}
+
+async function revokeTok(id) {
+  if (!confirm(`确认立即失效令牌 #${id}？（access + refresh 同时作废，对端将 401）`)) return;
+  const r = await api(`/api/auth/tokens/${id}/revoke`, {method: 'POST'});
+  if (!r) return;
+  toast('令牌 #' + id + ' 已失效');
+  loadAuthTokens(); loadAuthRequests();
+}
+
+async function revokeAllAction() {
+  if (!confirm('确认失效全部有效令牌？（整对作废，对端只能重新完整认证）')) return;
+  const r = await api('/api/auth/revoke-all', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({client_id: document.getElementById('tokClient').value.trim()}),
+  });
+  if (!r) return;
+  toast('已失效 ' + r.revoked + ' 条');
+  loadAuthTokens(); loadAuthRequests();
+}
+
+async function expireAccessAction() {
+  const r = await api('/api/auth/expire-access', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({client_id: document.getElementById('tokClient').value.trim()}),
+  });
+  if (!r) return;
+  toast('access 已立即过期 ' + r.expired + ' 条（refresh 仍可用）');
+  loadAuthTokens(); loadAuthRequests();
+}
+
+async function issueAuthToken() {
+  const client = prompt('签发给哪个 client_id？', (window._authCfg || {}).client_id || 'esb_client');
+  if (client === null) return;
+  const r = await api('/api/auth/issue', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({client_id: client, grant_type: 'client_credentials'}),
+  });
+  if (!r) return;
+  toast('已签发令牌 #' + r.id + '（有效期 ' + r.access_left_s + 's）');
+  loadAuthTokens(); loadAuthRequests();
+}
+
+// ── 认证请求留痕 ──
+async function loadAuthRequests() {
+  const qs = new URLSearchParams({limit: '200'});
+  const kind = document.getElementById('arKind').value;
+  const result = document.getElementById('arResult').value;
+  const client = document.getElementById('arClient').value.trim();
+  if (kind) qs.set('kind', kind);
+  if (result) qs.set('result', result);
+  if (client) qs.set('client_id', client);
+  const d = await api('/api/auth/requests?' + qs.toString());
+  if (!d) return;
+  window._authReqs = d.items || [];
+  const body = document.getElementById('authRequestsBody');
+  if (!window._authReqs.length) {
+    body.innerHTML = '<tr><td colspan="10" class="empty">暂无认证请求</td></tr>';
+    return;
+  }
+  const cls = r => r === 'success' ? 'badge-success'
+                : (r === 'reuse_detected' ? 'badge-custom' : 'badge-fail');
+  body.innerHTML = window._authReqs.map(r => `
+    <tr style="cursor:pointer;" onclick="showAuthReq(${r.id})">
+      <td>${fmtTs(r.ts).full}</td>
+      <td>${escapeHtml(r.kind)}</td>
+      <td>${escapeHtml(r.grant_type || '-')}</td>
+      <td>${escapeHtml(r.client_id || '-')}</td>
+      <td><span class="badge ${cls(r.result)}">${escapeHtml(r.result)}</span></td>
+      <td>${r.status_code}</td>
+      <td>${escapeHtml(r.endpoint || '-')}</td>
+      <td title="${escapeHtml((r.request_body || '').slice(0, 300))}">${escapeHtml((r.request_body || '-').slice(0, 40))}</td>
+      <td title="${escapeHtml((r.response_body || '').slice(0, 300))}">${escapeHtml((r.response_body || '-').slice(0, 40))}</td>
+      <td>${escapeHtml(r.detail || '-')}</td>
+    </tr>`).join('');
+}
+
+function showAuthReq(id) {
+  const r = (window._authReqs || []).find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('detailTitle').textContent = `认证请求 #${id}（${r.kind} / ${r.result}）`;
+  document.getElementById('detailContent').innerHTML = `
+    <table class="kv-table">
+      <tr><td>时间</td><td>${fmtTs(r.ts).full}</td></tr>
+      <tr><td>类型 / 结果</td><td>${escapeHtml(r.kind)} · ${escapeHtml(r.result)} · HTTP ${r.status_code}</td></tr>
+      <tr><td>端点</td><td>${escapeHtml(r.endpoint || '-')} ${escapeHtml(r.method || '')}</td></tr>
+      <tr><td>grant_type</td><td>${escapeHtml(r.grant_type || '-')}</td></tr>
+      <tr><td>client_id</td><td>${escapeHtml(r.client_id || '-')}</td></tr>
+      <tr><td>来源 IP</td><td>${escapeHtml(r.source_ip || '-')}</td></tr>
+      <tr><td>耗时</td><td>${r.elapsed_ms || 0} ms</td></tr>
+      <tr><td>说明</td><td>${escapeHtml(r.detail || '-')}</td></tr>
+    </table>
+    <h4>请求头</h4><pre>${escapeHtml(prettyJson(r.request_headers || '{}'))}</pre>
+    <h4>请求体</h4><pre>${escapeHtml(prettyJson(r.request_body || ''))}</pre>
+    <h4>响应体</h4><pre>${escapeHtml(prettyJson(r.response_body || ''))}</pre>
+  `;
+  document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+async function resetAuthRequests() {
+  if (!confirm('确认清空全部认证请求留痕？（令牌不受影响）')) return;
+  const r = await api('/api/auth/requests/reset', {method: 'POST'});
+  if (!r) return;
+  toast('已清空 ' + r.deleted + ' 条');
+  loadAuthRequests();
+}
+
+// ── 初始化 ──
+loadStats();
+loadLogs(0);
+loadTargets();
+loadParams();
+loadScenarios();
+loadMetrics();
+loadMqConsumers();
+loadMqProducers().then(refreshProducerSelect);
+loadMqMessages(0);
+loadMqSends();
+// 自动刷新间隔由页面最上方下拉框控制（ms=秒，m=分钟，- 不刷新；默认 15ms）
+function _autoRefreshJobs() {
+  loadStats(); loadLogs(logOffset);
+  loadMqConsumers();
+  loadMqMessages(mqOffset);
+  loadMqSends();
+}
+function setAutoRefresh(val) {
+  if (autoRefresh) { clearInterval(autoRefresh); autoRefresh = null; }
+  if (val === '-') return;
+  _autoRefreshJobs();
+  autoRefresh = setInterval(_autoRefreshJobs, Number(val) * 1000);
+}
+setAutoRefresh(document.getElementById('autoRefreshSel').value);
+</script>
+
+</body>
+</html>
