@@ -22,7 +22,7 @@ def _getint(key: str, default: int = 0) -> int:
 
 # ── 服务自身 ──
 FAUX_PORT: int = _getint("FAUX_PORT", 8081)
-FAUX_DB_PATH: str = _get("FAUX_DB_PATH", str(_root / "mock13.db"))
+FAUX_DB_PATH: str = _get("FAUX_DB_PATH", str(_root / "faux.db"))
 
 # ── 预置目标列表 ──
 KNOWN_TARGETS = ["echo", "echo2", "echo3", "sit-not-found"]

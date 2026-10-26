@@ -66,7 +66,7 @@ pip install -r requirements.txt
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8081 --reload
 ```
 
-首次启动自动创建 SQLite（`mock13.db`）并建表，无需迁移。`.env` 可选（默认值见下文）。
+首次启动自动创建 SQLite（`faux.db`）并建表，无需迁移。`.env` 可选（默认值见下文）。
 
 ### 验证
 
@@ -94,7 +94,7 @@ curl -X POST http://localhost:8081/api/anything/here -d '{"k":"v"}'
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `FAUX_PORT` | `8081` | 服务端口 |
-| `FAUX_DB_PATH` | `./mock13.db` | SQLite 数据库路径 |
+| `FAUX_DB_PATH` | `./faux.db` | SQLite 数据库路径 |
 | `MQ_ENABLED` | `false` | 是否启用 **旧版单例**消费者（新版多实例消费方走 DB 配置，见 [MQ 消费方](#mq-消费方多实例推荐)） |
 | `MQ_HOST` / `MQ_PORT` / `MQ_USER` / `MQ_PASSWORD` / `MQ_VHOST` | `127.0.0.1` / `5672` / `guest` / `guest` / `/` | RabbitMQ 连接（旧版单例用） |
 | `MQ_REPLY_QUEUE_PREFIX` | `reply.` | 回复队列前缀（旧版单例用） |
@@ -566,7 +566,7 @@ JWT 载荷：`{"iss","sub","iat","exp","jti","aud"(可选),"scope"(可选)}`；
 
 ### 多重认证（路径规则）
 
-一个 mock13 可同时扮演多个要求不同认证的下游系统：按路径配规则，**规则内可多选方式（OR，任一通过即放行）**。
+一个本服务实例可同时扮演多个要求不同认证的下游系统：按路径配规则，**规则内可多选方式（OR，任一通过即放行）**。
 
 匹配与生效顺序：
 
@@ -870,7 +870,7 @@ SQLite 单库（`FAUX_DB_PATH`），启动自动建表：
 ## 项目结构
 
 ```
-mock13/
+faux/
 ├── app/
 │   ├── main.py              # FastAPI 入口 + 生命周期 + catch-all 请求链
 │   ├── config.py            # 配置加载（.env + 环境变量）

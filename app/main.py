@@ -114,13 +114,13 @@ async def auth_gate(request: Request, call_next):
     modes = result.get("modes") or []
     mode = ",".join(modes) or cfg.get("mode")
     if "basic" in modes:
-        challenge = 'Basic realm="mock13"'
+        challenge = 'Basic realm="faux"'
     elif "apikey" in modes:
-        challenge = 'ApiKey realm="mock13"'
+        challenge = 'ApiKey realm="faux"'
     elif "jwt" in modes or "bearer" in modes:
-        challenge = 'Bearer realm="mock13", error="invalid_token"'
+        challenge = 'Bearer realm="faux", error="invalid_token"'
     else:
-        challenge = 'Bearer realm="mock13"'
+        challenge = 'Bearer realm="faux"'
     body = json.dumps({"error": "unauthorized", "detail": detail,
                        "mode": mode}, ensure_ascii=False)
     authservice.record_rejected(path, request.method, request.headers, detail,

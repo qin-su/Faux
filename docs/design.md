@@ -45,7 +45,7 @@ Smart Faux Server 是一个独立的 HTTP 服务，面向**通用接口测试**�
                           │  GET  /               Web Dashboard              │
                           │  GET  /docs           Swagger API 文档           │
                           │                                                   │
-                          │  存储: SQLite (mock13.db)                         │
+                          │  存储: SQLite (faux.db)                           │
                           └──────────────────────────────────────────────────┘
 ```
 
@@ -189,7 +189,7 @@ def apply_fault_mode(target: str) -> tuple[int, dict, str]:
 ```ini
 # Smart Faux 自身
 FAUX_PORT=8081
-FAUX_DB_PATH=./mock13.db
+FAUX_DB_PATH=./faux.db
 
 # RabbitMQ（仅 MQ 消费测试需要；纯 Mock 用法无需配置）
 MQ_ENABLED=false

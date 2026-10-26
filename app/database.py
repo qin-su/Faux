@@ -174,8 +174,8 @@ CREATE TABLE IF NOT EXISTS auth_config (
     id                   INTEGER PRIMARY KEY,
     enabled              INTEGER DEFAULT 0,          -- 认证总开关（0=不校验，与历史行为一致）
     mode                 TEXT    DEFAULT 'none',     -- none/jwt/bearer/basic/apikey
-    secret               TEXT    DEFAULT 'mock13-jwt-secret',  -- JWT HS256 密钥
-    issuer               TEXT    DEFAULT 'mock13',
+    secret               TEXT    DEFAULT 'faux-jwt-secret',  -- JWT HS256 密钥
+    issuer               TEXT    DEFAULT 'faux',
     audience             TEXT    DEFAULT '',
     access_ttl           INTEGER DEFAULT 1800,       -- access_token 有效期（秒）
     refresh_ttl          INTEGER DEFAULT 604800,     -- refresh_token 有效期（秒）

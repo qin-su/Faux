@@ -173,7 +173,7 @@ def export_targets():
                         for r in cur.fetchall()]
 
     payload = {
-        "version": 2, "tool": "mock13-faux-server", "exported_at": _now(),
+        "version": 2, "tool": "faux-server", "exported_at": _now(),
         "targets": targets, "global_params": params, "fault_modes": modes,
         "fault_scenarios": scenarios, "stat_metrics": stat_metrics,
         "mq_consumers": mq_consumers, "mq_producers": mq_producers,

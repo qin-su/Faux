@@ -41,8 +41,8 @@ OPEN_PREFIXES = ("/static", "/docs", "/redoc", "/openapi.json")
 DEFAULT_CONFIG = {
     "enabled": 0,
     "mode": "none",
-    "secret": "mock13-jwt-secret",
-    "issuer": "mock13",
+    "secret": "faux-jwt-secret",
+    "issuer": "faux",
     "audience": "",
     "access_ttl": 1800,
     "refresh_ttl": 604800,
@@ -176,7 +176,7 @@ def issue_tokens(cfg: dict, client_id: str = "", grant_type: str = "client_crede
 
     if kind == "jwt":
         payload = {
-            "iss": cfg.get("issuer") or "mock13",
+            "iss": cfg.get("issuer") or "faux",
             "sub": client_id or "",
             "iat": int(now),
             "exp": int(now + a_ttl),
