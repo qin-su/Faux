@@ -13,7 +13,7 @@ echo.
 if not exist ".env" (
     echo [!] 未找到 .env，从 .env.example 复制...
     copy .env.example .env >nul
-    echo [i] 请编辑 .env 填入 ESB 连接信息后重新启动
+    echo [i] 请编辑 .env 配置服务端口 / MQ 连接后重新启动
 )
 
 :: 检查 Python

@@ -179,8 +179,8 @@ CREATE TABLE IF NOT EXISTS auth_config (
     audience             TEXT    DEFAULT '',
     access_ttl           INTEGER DEFAULT 1800,       -- access_token 有效期（秒）
     refresh_ttl          INTEGER DEFAULT 604800,     -- refresh_token 有效期（秒）
-    client_id            TEXT    DEFAULT 'esb_client',
-    client_secret        TEXT    DEFAULT 'esb_secret',
+    client_id            TEXT    DEFAULT 'mock_client',
+    client_secret        TEXT    DEFAULT 'mock_secret',
     token_endpoint_auth  TEXT    DEFAULT 'basic',    -- basic/apikey/body/none：换票端点凭据校验方式
     apikey_header        TEXT    DEFAULT 'X-API-Key',
     apikey_value         TEXT    DEFAULT '',

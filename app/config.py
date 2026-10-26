@@ -34,10 +34,10 @@ MQ_PORT: int = _getint("MQ_PORT", 5672)
 MQ_USER: str = _get("MQ_USER", "guest")
 MQ_PASSWORD: str = _get("MQ_PASSWORD", "guest")
 MQ_VHOST: str = _get("MQ_VHOST", "/")
-MQ_REPLY_QUEUE_PREFIX: str = _get("MQ_REPLY_QUEUE_PREFIX", "esb.status.")
+MQ_REPLY_QUEUE_PREFIX: str = _get("MQ_REPLY_QUEUE_PREFIX", "reply.")
 # 死信拓扑（须与上游投递方的队列声明参数完全一致，否则同名队列声明 406）
-MQ_DLX: str = _get("MQ_DLX", "esb.dlx")
-MQ_DLQ: str = _get("MQ_DLQ", "esb.dlq")
+MQ_DLX: str = _get("MQ_DLX", "faux.dlx")
+MQ_DLQ: str = _get("MQ_DLQ", "faux.dlq")
 
 # 启动时自动消费的队列列表
 _auto_queues_raw = _get("MQ_AUTO_QUEUES", "")

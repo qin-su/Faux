@@ -2244,7 +2244,7 @@ async function expireAccessAction() {
 }
 
 async function issueAuthToken() {
-  const client = prompt('签发给哪个 client_id？', (window._authCfg || {}).client_id || 'esb_client');
+  const client = prompt('签发给哪个 client_id？', (window._authCfg || {}).client_id || 'mock_client');
   if (client === null) return;
   const r = await api('/api/auth/issue', {
     method: 'POST', headers: {'Content-Type': 'application/json'},

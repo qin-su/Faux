@@ -7,7 +7,7 @@
   fail    → ack + 回复 {"messageId":"xxx","status":"FAILED","error":"injected fail"}
   timeout → 延迟后 ack + 回复 FAILED（模拟消费者处理超时）
 
-回复发到消息的 reply_to 队列（默认 esb.status.{system}），上游的状态监听器
+回复发到消息的 reply_to 队列（前缀由 MQ_REPLY_QUEUE_PREFIX 指定），调用方的状态监听器
 消费回复后更新 routing_detail 状态。
 
 线程模型：pika BlockingConnection 是同步阻塞的，消费者在独立线程中运行。
@@ -270,7 +270,7 @@ class MqConsumer:
         for q in queues:
             try:
                 # 声明队列（幂等）：参数与上游投递方 declareQueue 完全一致
-                # （durable + DLX 指向 esb.dlx/esb.dlq）。若不带死信参数而队列已被
+                # （durable + DLX 指向 MQ_DLX / MQ_DLQ）。若不带死信参数而队列已被
                 # 上游声明，会因参数不匹配触发 406 PRECONDITION_FAILED 导致消费失败。
                 self._channel.queue_declare(
                     queue=q, durable=True,

@@ -2,7 +2,7 @@
 
 > 版本: 1.3 | 日期: 2026-09-22
 
-轻量级通用 Mock 服务端（FastAPI + SQLite，零外部依赖即可跑），原为 ESB 测试场景孵化，本身**不绑定任何被测系统**：任何 HTTP 调用方都可以把它当作"可编程的假服务端"使用。
+轻量级通用 Mock 服务端（FastAPI + SQLite，零外部依赖即可跑），**不绑定任何被测系统**：任何 HTTP 调用方都可以把它当作"可编程的假服务端"使用，用于接口联调、故障演练、认证链路与 MQ 消费行为的验证。
 
 核心能力一览：
 
@@ -97,7 +97,7 @@ curl -X POST http://localhost:8081/api/anything/here -d '{"k":"v"}'
 | `FAUX_DB_PATH` | `./mock13.db` | SQLite 数据库路径 |
 | `MQ_ENABLED` | `false` | 是否启用 **旧版单例**消费者（新版多实例消费方走 DB 配置，见 [MQ 消费方](#mq-消费方多实例推荐)） |
 | `MQ_HOST` / `MQ_PORT` / `MQ_USER` / `MQ_PASSWORD` / `MQ_VHOST` | `127.0.0.1` / `5672` / `guest` / `guest` / `/` | RabbitMQ 连接（旧版单例用） |
-| `MQ_REPLY_QUEUE_PREFIX` | `esb.status.` | 回复队列前缀（与 ESB 约定一致，旧版单例用） |
+| `MQ_REPLY_QUEUE_PREFIX` | `reply.` | 回复队列前缀（旧版单例用） |
 | `MQ_AUTO_QUEUES` | *(空)* | 启动时自动消费的队列（逗号分隔，旧版单例用） |
 
 ---
@@ -393,7 +393,7 @@ curl http://localhost:8081/api/logs/stats | python -m json.tool
 **示例：**
 
 ```bash
-# marker 计数断言（验证 ESB 重试投递了 3 次）
+# marker 计数断言（验证调用方重试投递了 3 次）
 curl "http://localhost:8081/api/logs/count?marker=TC-001"
 # {"marker":"TC-001","count":3,"by_target":{"echo":2,"echo2":1}}
 
@@ -410,7 +410,7 @@ curl http://localhost:8081/api/logs/123
 
 把本服务伪装成「要求认证的下游系统」：默认**不做任何认证**（与历史行为完全一致，来者不拒）；
 打开开关后按所选方式校验入站业务请求的凭据，并提供完整的换票 / 刷新 / 失效链路，
-用于验证 ESB 出站动态令牌（`OutboundTokenManager`）的
+用于验证调用方出站动态令牌（各类令牌管理组件）的
 「首调换票 → 缓存复用 → 临期刷新 → 401 重取重投」行为。
 
 **零新增依赖**：JWT 用标准库 `hmac` + `hashlib` + `base64` 实现 HS256
@@ -435,7 +435,7 @@ curl http://localhost:8081/api/logs/123
 
 ### 换票端点 `POST|GET /api/auth/token`
 
-支持 **JSON / form / query** 三种传参（ESB 的 `bodyTemplate` 两种形态都能对接）。
+支持 **JSON / form / query** 三种传参（调用方 body 模板的常见形态都能对接）。
 
 | grant_type | 入参 | 响应 |
 |-----------|------|------|
@@ -455,7 +455,7 @@ curl http://localhost:8081/api/logs/123
 `response_template` 可改写响应结构（适配自研网关的固定包装），支持占位符
 `@access_token` `@refresh_token` `@expires_in` `@refresh_expires_in` `@token_type` `@client_id`。
 
-**refresh_token 语义**（对齐 ESB 12 号稿 refreshEndpoint 设计）：
+**refresh_token 语义**（对齐 OAuth2 一次一换的常见设计）：
 一次一换，旧 refresh 立即作废；旧串被再次使用 = 疑似泄漏 →
 返回 `invalid_grant` 并默认吊销该 client 全部 ACTIVE 令牌（家族吊销，RFC 6819）。
 
@@ -483,21 +483,21 @@ curl http://localhost:8081/api/logs/123
 ```bash
 # 1) 开启 JWT 认证（access 60s，便于观察轮换）
 curl -X PUT http://localhost:8081/api/auth/config -H "Content-Type: application/json" -d ^
-"{\"enabled\":true,\"mode\":\"jwt\",\"secret\":\"sit-secret\",\"access_ttl\":60,\"client_id\":\"esb_client\",\"client_secret\":\"esb_secret\"}"
+"{\"enabled\":true,\"mode\":\"jwt\",\"secret\":\"sit-secret\",\"access_ttl\":60,\"client_id\":\"mock_client\",\"client_secret\":\"mock_secret\"}"
 
 # 2) 无凭据调用业务端点 → 401
 curl -X POST http://localhost:8081/api/echo -d "{}"
 # {"error":"unauthorized","detail":"缺少 Authorization: Bearer <JWT> 头","mode":"jwt"}
 
 # 3) 换票（Basic 头带 clientId:clientSecret）
-curl -X POST http://localhost:8081/api/auth/token -u esb_client:esb_secret ^
+curl -X POST http://localhost:8081/api/auth/token -u mock_client:mock_secret ^
      -d "grant_type=client_credentials"
 # {"access_token":"eyJ...","token_type":"Bearer","expires_in":60,"refresh_token":"mkr_..."}
 
 # 4) 携带 JWT 调用 → 200
 curl -X POST http://localhost:8081/api/echo -H "Authorization: Bearer eyJ..." -d "{}"
 
-# 5) 立即失效（页面按钮或接口）→ 该 token 立刻 401，ESB 将触发重取重投
+# 5) 立即失效（页面按钮或接口）→ 该 token 立刻 401，调用方将触发重取重投
 curl -X POST http://localhost:8081/api/auth/tokens/1/revoke
 curl -X POST http://localhost:8081/api/auth/revoke-all -H "Content-Type: application/json" -d "{}"
 
@@ -513,7 +513,7 @@ B = "http://127.0.0.1:8081"
 c = httpx.Client(timeout=10)
 c.put(f"{B}/api/auth/config", json={"enabled": True, "mode": "jwt",
                                      "secret": "sit-secret", "access_ttl": 60})
-auth = "Basic " + base64.b64encode(b"esb_client:esb_secret").decode()
+auth = "Basic " + base64.b64encode(b"mock_client:mock_secret").decode()
 tk = c.post(f"{B}/api/auth/token", data={"grant_type": "client_credentials"},
             headers={"Authorization": auth}).json()
 r = c.post(f"{B}/api/echo", json={"a": 1},
@@ -524,20 +524,20 @@ assert c.post(f"{B}/api/echo", json={"a": 1},
               headers={"Authorization": "Bearer " + tk["access_token"]}).status_code == 401
 ```
 
-### 与 ESB 出站动态令牌对接
+### 与调用方出站动态令牌对接
 
-ESB 侧（`业务系统 → 出站认证`，或按 12 号稿实施管理台表单后）配置：
+调用方（网关 / 业务系统）在出站认证里把 tokenEndpoint 指向本服务即可：
 
 ```jsonc
 "bearer": { "tokenEndpoint": {
     "url":          "http://<mock-host>:8081/api/auth/token",
     "method":       "POST",
     "authType":     "basic",              // 或 apikey（与 token_endpoint_auth 对应）
-    "clientId":     "esb_client",         // 与 mock 配置一致
-    "clientSecret": "esb_secret",
+    "clientId":     "mock_client",        // 与本服务认证配置一致
+    "clientSecret": "mock_secret",
     "grantType":    "client_credentials",
     "tokenPath":    "access_token",       // 默认即 access_token
-    "expiresInPath":"expires_in"          // 决定 ESB 缓存多久（clamp 60s~86400s）
+    "expiresInPath":"expires_in"          // 决定调用方缓存多久
 }}
 ```
 
@@ -545,15 +545,15 @@ ESB 侧（`业务系统 → 出站认证`，或按 12 号稿实施管理台表�
 
 | 目标 | 做法 | 预期 |
 |------|------|------|
-| 触发 ESB 重取重投 | 页面「全部失效」或 `POST /api/auth/revoke-all` | 下一条消息 401 → ESB 重取 → 重投成功（仅重投一次） |
-| 验证 401→refresh 分支 | `POST /api/auth/expire-access`（refresh 仍有效） | ESB 实施 refreshEndpoint 后应走刷新；当前版本 ESB 无 refresh，表现为重新完整认证 |
+| 触发调用方重取重投 | 页面「全部失效」或 `POST /api/auth/revoke-all` | 下一条请求 401 → 调用方重取 → 重投成功 |
+| 验证 401→refresh 分支 | `POST /api/auth/expire-access`（refresh 仍有效） | 支持 refresh 的调用方应走刷新；不支持的调用方表现为重新完整认证 |
 | 观察换票节奏 | `GET /api/auth/requests?kind=token` | 每条换票/刷新一行，含请求头体与响应体 |
-| ESB 缓存时长 | 配置 `access_ttl` | ESB 按 `expires_in` 缓存，剩余 <30s 提前刷新，最小有效值 60s |
-| **本地联调必踩坑** | 换票地址过 `OutboundTargetGuard` 双检 | 默认禁止 `127.0.0.0/8` → 需把 `esb.security.deny-target-cidrs` 显式设为 `none`（填空串=恢复默认），或改用内网 IP |
+| 令牌缓存时长 | 配置 `access_ttl` | 调用方按 `expires_in` 缓存；本地联调建议 ≥60s |
+| **本地联调注意** | 部分调用方有出站地址黑名单（如禁止 `127.0.0.0/8`） | 需放开或改用内网 IP，否则换票请求会被拦截 |
 
 JWT 载荷：`{"iss","sub","iat","exp","jti","aud"(可选),"scope"(可选)}`；
 `jti` = `auth_tokens.id`，因此**吊销立即生效**（JWT 未过期也会被拒）——
-这是验证「ESB 401 重取」最干净的手段，无需等待 token 过期。
+这是验证「401 重取」最干净的手段，无需等待 token 过期。
 
 ### 令牌状态
 
@@ -610,7 +610,7 @@ curl "http://localhost:8081/api/auth/resolve?path=/api/pay/1"
 **换票要带 `path=`**：规则覆盖了密钥时，换票需指定目标路径才能用对应密钥签发：
 
 ```bash
-curl -X POST http://localhost:8081/api/auth/token -u esb_client:esb_secret ^
+curl -X POST http://localhost:8081/api/auth/token -u mock_client:mock_secret ^
      -d "grant_type=client_credentials&path=/api/pay/1"
 ```
 
@@ -784,7 +784,7 @@ curl http://localhost:8081/api/mq/sends
 > `.env` 驱动的旧版单例消费者（`MQ_ENABLED` + `MQ_AUTO_QUEUES`），保留兼容既有脚本。新用法建议用上方**多实例消费方**。
 
 ```
-ESB MqDispatcher → RabbitMQ 队列 → 本服务消费 → 记录 SQLite → 故障注入 → 回复 esb.status.{system} → ESB 更新状态
+投递方 → RabbitMQ 队列 → 本服务消费 → 记录 SQLite → 故障注入 → 回复 reply.{system} → 投递方更新状态
 ```
 
 收到消息后按该队列的 `fault_mode`（target = 队列名）决定回复：success → `{"messageId":"xxx","status":"CONSUMED"}`；fail/timeout → `{"status":"FAILED","error":"injected ..."}`；一律 ack 不 requeue。
@@ -819,7 +819,7 @@ curl -X POST "http://localhost:8081/api/mq/subscribe?queue=sit.target.queue"
 curl -X PUT http://localhost:8081/api/mode/sit.target.queue \
   -H "Content-Type: application/json" -d '{"success_rate":70,"fail_rate":30,"timeout_rate":0}'
 
-# 3. ESB 发送 MQ 消息后验证
+# 3. 投递方发送 MQ 消息后验证
 curl "http://localhost:8081/api/mq/messages/count?marker=TC-MQ-001"
 ```
 
@@ -913,7 +913,7 @@ mock13/
 
 ## 完整测试流程示例
 
-以"注册接口 → 注入 30% 失败 → 发送 → 断言"为例（纯 Mock 用法，不依赖 ESB）：
+以"注册接口 → 注入 30% 失败 → 发送 → 断言"为例（纯 Mock 用法，不依赖任何外部系统）：
 
 ```bash
 # 1. 注册目标服务（模板含动态参数）
