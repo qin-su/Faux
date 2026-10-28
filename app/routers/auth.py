@@ -158,6 +158,12 @@ async def token(request: Request):
                         "error_description": f"不支持 grant_type={grant}"}}
         kind = "token"
 
+    resp_body = res["body"]
+    extra_headers = None
+    if isinstance(resp_body, dict) and isinstance(resp_body.get("_headers"), dict):
+        # response_template 支持响应头注入（供把令牌置于响应头的调用方使用）；
+        # 占位符已在 _render_response 统一替换
+        extra_headers = resp_body.pop("_headers")
     detail = ""
     if res.get("rotated_from"):
         detail = f"由令牌 #{res['rotated_from']} 轮换而来"
@@ -169,7 +175,11 @@ async def token(request: Request):
         detail=detail or (res.get("body", {}).get("error_description", "")),
         response_body=json.dumps(res["body"], ensure_ascii=False)[:4000],
         elapsed_ms=_elapsed(start), **log_common)
-    return JSONResponse(res["body"], status_code=res["status"])
+    resp = JSONResponse(resp_body, status_code=res["status"])
+    if extra_headers:
+        for _k, _v in extra_headers.items():
+            resp.headers[str(_k)] = str(_v)
+    return resp
 
 
 # ── 令牌管理 ──

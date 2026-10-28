@@ -14,4 +14,5 @@ __pycache__/
 .vscode/
 
 # 打包 / 部署产物（本地保留，不入仓）
-deploy/
+deploy/*.exe
+deploy/.build_work/

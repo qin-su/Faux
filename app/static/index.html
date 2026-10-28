@@ -1696,7 +1696,7 @@ function onSendProducerChange() {
 function fillMqSample() {
   const id = document.getElementById('sendProducer').value;
   const p = (window._mqProducers || []).find(x => String(x.id) === String(id));
-  const def = '{\n  "marker": "TC-MQ-001",\n  "messageId": "M-001",\n  "sourceSystem": "SIT_SYS",\n  "bizData": {\n    "orderNo": "A123",\n    "amount": 99.9\n  }\n}';
+  const def = '{\n  "marker": "TC-MQ-001",\n  "messageId": "M-001",\n  "sourceSystem": "DEMO_SYS",\n  "bizData": {\n    "orderNo": "A123",\n    "amount": 99.9\n  }\n}';
   document.getElementById('sendBody').value = (p && p.sample_body) || def;
 }
 
